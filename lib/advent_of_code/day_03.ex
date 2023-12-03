@@ -136,11 +136,12 @@ defmodule AdventOfCode.Day03 do
       next_col = rem(col + 1, 9)
       next_row = if next_col == 0, do: row + 1, else: row
 
-      Enum.reduce(p, nil, fn n, sols ->
-        case solve(Map.put(array, {row, col}, n), {next_row, next_col}) do
-          nil -> sols
-          sol -> sol
-        end
+      Enum.reduce_while(p, nil, fn n, _ ->
+        sol = solve(Map.put(array, {row, col}, n), {next_row, next_col})
+
+        if sol == nil,
+          do: {:cont, nil},
+          else: {:halt, sol}
       end)
     end
   end
@@ -182,7 +183,7 @@ defmodule AdventOfCode.Day03 do
       1.8....9.
       ..56.....
       4..8.....
-      38..1.56.
+      38..1.52.
       """
       |> parse_sudoku()
 
