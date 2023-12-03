@@ -12,13 +12,14 @@ defmodule AdventOfCode.Day03 do
   def parse(input) do
     lines = String.split(input, "\n", trim: true)
 
+    # %{{row,col} => char}}
     array =
       lines
       |> with_index()
       |> map(&parse_line/1)
       |> List.flatten()
-      |> Map.new()
 
+    # List of [{row, [{number, {start, len}}]}
     numbers =
       lines
       |> with_index()
@@ -28,24 +29,24 @@ defmodule AdventOfCode.Day03 do
 
         {row, zip(numbers, columns)}
       end)
+      # remove lines without numbers
       |> filter(fn {_, l} -> l != [] end)
+      # flatten list of lists
       |> map(fn {row, l} -> for z <- l, do: {row, z} end)
       |> List.flatten()
 
     {array, numbers}
   end
 
-  def identify_adjacents(array, test) do
+  # Create a set of all the adjacent cells of a symbol
+  def identify_adjacents(array) do
     array
+    # Keep symbols
+    |> filter(fn {_, char} -> char not in ?0..?9 end)
+    # Build a set of all the adjacent cells
     |> reduce(MapSet.new(), fn {{row, col}, _}, acc ->
-      char = array[{row, col}]
-
-      if test.(char) do
-        acc
-      else
-        cells = for r <- (row - 1)..(row + 1), c <- (col - 1)..(col + 1), do: {r, c}
-        MapSet.union(acc, MapSet.new(cells))
-      end
+      cells = for r <- (row - 1)..(row + 1), c <- (col - 1)..(col + 1), do: {r, c}
+      MapSet.union(acc, MapSet.new(cells))
     end)
   end
 
@@ -55,29 +56,38 @@ defmodule AdventOfCode.Day03 do
 
   def part1(args) do
     {array, numbers} = args |> parse()
-    adjacents = identify_adjacents(array, fn char -> char in ?0..?9 end)
+    adjacents = identify_adjacents(array)
 
     numbers
-    |> filter(fn {row, {n, interval}} -> adjacent_number?(row, interval, adjacents) end)
+    # Keep only the numbers with an adjacent symbol
+    |> filter(fn {row, {_n, interval}} -> adjacent_number?(row, interval, adjacents) end)
+    # Keep only the numbers
     |> Enum.map(fn {_, {n, _}} -> n end)
     |> Enum.sum()
   end
 
-  def part2(args) do
-    args = """
-    467..114..
-    ...*......
-    ..35..633.
-    ......#...
-    617*......
-    .....+.58.
-    ..592.....
-    ......755.
-    ...$.*....
-    .664.598..
-    """
+  # Find the numbers adjacent to the given position
+  def find_adjacent_numbers({r, c}, numbers) do
+    numbers
+    |> filter(fn {row, {_n, {start, len}}} ->
+      r in (row - 1)..(row + 1) and c in (start - 1)..(start + len)
+    end)
+    # Keep only the numbers
+    |> Enum.map(fn {_, {n, _}} -> n end)
+  end
 
-    {array, numbers} = args |> parse()
-    stars = filter(array, fn {_, char} -> char == ?* end)
+  def part2(args) do
+    {array, numbers} = parse(args)
+
+    array
+    # Keep only the cells with a star
+    |> filter(fn {_, char} -> char == ?* end)
+    # Find adjacent numbers
+    |> map(fn {pos, _} -> {pos, find_adjacent_numbers(pos, numbers)} end)
+    # Keep only the cells with two adjacent numbers
+    |> filter(fn {_, l} -> length(l) == 2 end)
+    # Multiply the two numbers
+    |> map(fn {_, l} -> product(l) end)
+    |> sum()
   end
 end
