@@ -11,8 +11,6 @@ defmodule AdventOfCode.Day03 do
 
   def parse(input) do
     lines = String.split(input, "\n", trim: true)
-    rows = lines |> length()
-    cols = lines |> hd() |> String.length()
 
     array =
       lines
@@ -28,32 +26,25 @@ defmodule AdventOfCode.Day03 do
         numbers = Regex.scan(~r/\d+/, text) |> List.flatten() |> map(&String.to_integer/1)
         columns = Regex.scan(~r/\d+/, text, return: :index) |> List.flatten()
 
-        {row, numbers, columns}
+        {row, zip(numbers, columns)}
       end)
-      |> filter(fn {_, numbers, _} -> numbers != [] end)
-      |> map(fn {row, numbers, columns} -> {row, zip(numbers, columns)} end)
-      |> Map.new()
+      |> filter(fn {_, l} -> l != [] end)
+      |> map(fn {row, l} -> for z <- l, do: {row, z} end)
+      |> List.flatten()
 
-    {rows, cols, array, numbers, identify_adjacents(array)}
+    {array, numbers}
   end
 
-  def identify_adjacents(array) do
+  def identify_adjacents(array, test) do
     array
     |> reduce(MapSet.new(), fn {{row, col}, _}, acc ->
       char = array[{row, col}]
 
-      if char in ?0..?9 do
+      if test.(char) do
         acc
       else
-        acc
-        |> MapSet.put({row - 1, col - 1})
-        |> MapSet.put({row - 1, col})
-        |> MapSet.put({row - 1, col + 1})
-        |> MapSet.put({row, col - 1})
-        |> MapSet.put({row, col + 1})
-        |> MapSet.put({row + 1, col - 1})
-        |> MapSet.put({row + 1, col})
-        |> MapSet.put({row + 1, col + 1})
+        cells = for r <- (row - 1)..(row + 1), c <- (col - 1)..(col + 1), do: {r, c}
+        MapSet.union(acc, MapSet.new(cells))
       end
     end)
   end
@@ -63,13 +54,12 @@ defmodule AdventOfCode.Day03 do
   end
 
   def part1(args) do
-    {_rows, _cols, array, numbers, adjacents} = args |> parse()
+    {array, numbers} = args |> parse()
+    adjacents = identify_adjacents(array, fn char -> char in ?0..?9 end)
 
-    for {row, ns} <- numbers do
-      filter(ns, fn {n, interval} -> adjacent_number?(row, interval, adjacents) end)
-    end
-    |> List.flatten()
-    |> Enum.map(fn {n, _} -> n end)
+    numbers
+    |> filter(fn {row, {n, interval}} -> adjacent_number?(row, interval, adjacents) end)
+    |> Enum.map(fn {_, {n, _}} -> n end)
     |> Enum.sum()
   end
 
@@ -87,7 +77,7 @@ defmodule AdventOfCode.Day03 do
     .664.598..
     """
 
-    args
-    :ok
+    {array, numbers} = args |> parse()
+    stars = filter(array, fn {_, char} -> char == ?* end)
   end
 end
