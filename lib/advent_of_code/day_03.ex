@@ -90,4 +90,103 @@ defmodule AdventOfCode.Day03 do
     |> map(fn {_, l} -> product(l) end)
     |> sum()
   end
+
+  def parse_sudoku(input) do
+    input
+    |> String.split("\n", trim: true)
+    |> with_index()
+    |> map(fn {line, row} ->
+      line
+      |> String.trim()
+      |> to_charlist()
+      |> with_index()
+      |> map(fn {char, col} -> {{row, col}, char - ?0} end)
+    end)
+    |> List.flatten()
+    |> Enum.filter(fn {_, char} -> char != ?. - ?0 end)
+    |> Enum.into(%{})
+  end
+
+  @all_numbers for(i <- 1..9, do: i) |> MapSet.new()
+
+  def possible(array, {row, col}) do
+    if array[{row, col}] != nil do
+      MapSet.new([array[{row, col}]])
+    else
+      row_s = div(row, 3) * 3
+      col_s = div(col, 3) * 3
+
+      @all_numbers
+      |> MapSet.difference(MapSet.new(for c <- 0..8, do: array[{row, c}]))
+      |> MapSet.difference(MapSet.new(for r <- 0..8, do: array[{r, col}]))
+      |> MapSet.difference(
+        MapSet.new(for r <- row_s..(row_s + 2), c <- col_s..(col_s + 2), do: array[{r, c}])
+      )
+    end
+  end
+
+  def solve(array, {9, 0}), do: array
+
+  def solve(array, {row, col}) do
+    p = possible(array, {row, col})
+
+    if p == MapSet.new() do
+      nil
+    else
+      next_col = rem(col + 1, 9)
+      next_row = if next_col == 0, do: row + 1, else: row
+
+      Enum.reduce(p, nil, fn n, sols ->
+        case solve(Map.put(array, {row, col}, n), {next_row, next_col}) do
+          nil -> sols
+          sol -> sol
+        end
+      end)
+    end
+  end
+
+  def display_sudoku(array) do
+    for row <- 0..8 do
+      if rem(row, 3) == 0 do
+        IO.puts("+-------+-------+-------+")
+      end
+
+      for col <- 0..8 do
+        cell = array[{row, col}]
+
+        if rem(col, 3) == 0 do
+          IO.write("| ")
+        end
+
+        if cell == nil do
+          IO.write(". ")
+        else
+          IO.write("#{cell} ")
+        end
+      end
+
+      IO.puts("|")
+    end
+
+    IO.puts("+-------+-------+-------+")
+  end
+
+  def sudoku() do
+    start =
+      """
+      .46.5..82
+      .....3..7
+      .....61..
+      .9......8
+      ...7.8...
+      1.8....9.
+      ..56.....
+      4..8.....
+      38..1.56.
+      """
+      |> parse_sudoku()
+
+    solve(start, {0, 0})
+    |> display_sudoku()
+  end
 end
