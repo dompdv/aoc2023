@@ -1,13 +1,7 @@
 defmodule AdventOfCode.Day12 do
-  import Enum
-
-  def part1(args) do
-    args
-    :ok
+  def part1(_args) do
   end
 
-  def part2(args) do
-    args
-    :ok
+  def part2(_args) do
   end
 end

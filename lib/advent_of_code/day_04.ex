@@ -45,7 +45,7 @@ defmodule AdventOfCode.Day04 do
 
   # Scratch one card
   def play([card | rest], deck, acc) do
-    {n, {matches, score}} = card
+    {n, {matches, _score}} = card
 
     # if there are no matches, we just continue
     if matches == 0 do
