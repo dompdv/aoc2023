@@ -2,17 +2,7 @@ defmodule AdventOfCode.Day07 do
   @card_values for(c <- ?2..?9, into: %{}, do: {c, c - ?0})
                |> Map.merge(%{?T => 10, ?J => 11, ?Q => 12, ?K => 13, ?A => 14})
 
-  def find_type(charl) do
-    a = charl |> Enum.frequencies() |> Map.values() |> Enum.sort(:desc)
-    # five of a kind    [5] - 1         -> 5 - 1 = 4
-    # four of a kind    [4, 1]          -> 4 - 2 = 2
-    # full house        [3, 2]          -> 3 - 2 = 1
-    # three of a kind   [3, 1, 1]       -> 3 - 3 = 0
-    # two pairs         [2, 2, 1]       -> 2 - 3 = -1
-    # one pair          [2, 1, 1, 1]    -> 2 - 4 = -2
-    # high card         [1, 1, 1, 1, 1] -> 1 - 5 = -4
-    hd(a) - length(a)
-  end
+  @card_values_2 Map.put(@card_values, ?J, 1)
 
   def compare_hands(a, b), do: compare_hands(Enum.zip(a, b))
   def compare_hands([]), do: true
@@ -40,13 +30,30 @@ defmodule AdventOfCode.Day07 do
       [hand, bid] = String.split(line, " ")
       charl = hand |> to_charlist() |> Enum.map(&@card_values[&1])
 
-      {String.to_integer(bid), charl, find_type(charl)}
+      {String.to_integer(bid), charl}
     end)
+  end
+
+  def find_type1(charl) do
+    a = charl |> Enum.frequencies() |> Map.values() |> Enum.sort(:desc)
+    # five of a kind    [5] - 1         -> 5 - 1 = 4
+    # four of a kind    [4, 1]          -> 4 - 2 = 2
+    # full house        [3, 2]          -> 3 - 2 = 1
+    # three of a kind   [3, 1, 1]       -> 3 - 3 = 0
+    # two pairs         [2, 2, 1]       -> 2 - 3 = -1
+    # one pair          [2, 1, 1, 1]    -> 2 - 4 = -2
+    # high card         [1, 1, 1, 1, 1] -> 1 - 5 = -4
+    hd(a) - length(a)
+  end
+
+  def add_type1(games) do
+    Enum.map(games, fn {bid, charl} -> {bid, charl, find_type1(charl)} end)
   end
 
   def part1(args) do
     args
     |> parse()
+    |> add_type1()
     |> Enum.sort(&stronger/2)
     |> Enum.with_index(1)
     |> Enum.map(fn {{bid, _, _}, rank} -> bid * rank end)
@@ -61,5 +68,7 @@ defmodule AdventOfCode.Day07 do
     KTJJT 220
     QQQJA 483
     """
+    |> parse()
+    |> add_type1()
   end
 end
