@@ -1,39 +1,27 @@
 defmodule AdventOfCode.Day07 do
+  # Map cards to their values
   @card_values for(c <- ?2..?9, into: %{}, do: {c, c - ?0})
                |> Map.merge(%{?T => 10, ?J => 11, ?Q => 12, ?K => 13, ?A => 14})
 
-  @card_values_2 Map.put(@card_values, ?J, 1)
+  # Jokers are 1, which is the lowest value
+  @card_values2 Map.put(@card_values, ?J, 1)
 
-  def compare_hands(a, b), do: compare_hands(Enum.zip(a, b))
-  def compare_hands([]), do: true
+  # List comparison in Elixir is lexicographical
+  def stronger({_, hand_a, type_a}, {_, hand_b, type_a}), do: hand_a < hand_b
+  def stronger({_, _, type_a}, {_, _, type_b}), do: type_a < type_b
 
-  def compare_hands([{a, b} | t]) do
-    cond do
-      a > b -> false
-      a < b -> true
-      true -> compare_hands(t)
-    end
-  end
-
-  def stronger({_, hand_a, type_a}, {_, hand_b, type_b}) do
-    cond do
-      type_a > type_b -> false
-      type_a < type_b -> true
-      type_a == type_b -> compare_hands(hand_a, hand_b)
-    end
-  end
-
-  def parse(input) do
+  # List of tuples, where the first element is the bid and the second is the hand
+  def parse(input, card_values) do
     input
     |> String.split("\n", trim: true)
     |> Enum.map(fn line ->
       [hand, bid] = String.split(line, " ")
-      charl = hand |> to_charlist() |> Enum.map(&@card_values[&1])
-
-      {String.to_integer(bid), charl}
+      # Keep oonly the values of the cards
+      {String.to_integer(bid), hand |> to_charlist() |> Enum.map(&card_values[&1])}
     end)
   end
 
+  # Assign a number to each hand type, so that we can compare them
   def find_type1(charl) do
     a = charl |> Enum.frequencies() |> Map.values() |> Enum.sort(:desc)
     # five of a kind    [5] - 1         -> 5 - 1 = 4
@@ -46,29 +34,48 @@ defmodule AdventOfCode.Day07 do
     hd(a) - length(a)
   end
 
-  def add_type1(games) do
-    Enum.map(games, fn {bid, charl} -> {bid, charl, find_type1(charl)} end)
+  # no jokers
+  def add_jokers(freq, nil), do: freq
+  # 5 jokers
+  def add_jokers(freq, 5), do: freq
+
+  # 1 to 4 jokers
+  def add_jokers(freq, jokers) do
+    freq = freq |> Map.delete(1)
+    # find the most frequent card
+    key_max = Enum.max_by(freq, fn {_, v} -> v end) |> elem(0)
+    # add the jokers to the most frequent card
+    Map.update(freq, key_max, 1, &(&1 + jokers))
   end
 
-  def part1(args) do
+  def find_type2(charl) do
+    freq = charl |> Enum.frequencies()
+    # freq[1] is the number of jokers
+    freq_list =
+      freq
+      # add the jokers to the most frequent card
+      |> add_jokers(freq[1])
+      |> Map.values()
+      |> Enum.sort(:desc)
+
+    hd(freq_list) - length(freq_list)
+  end
+
+  def process(args, card_values, find_type_function) do
     args
-    |> parse()
-    |> add_type1()
+    |> parse(card_values)
+    # Add the type value to the tuple
+    |> Enum.map(fn {bid, charl} -> {bid, charl, find_type_function.(charl)} end)
+    # Sort by type, then by hand
     |> Enum.sort(&stronger/2)
+    # Add the rank to the tuple
     |> Enum.with_index(1)
+    # Multiply the bid by the rank and sum
     |> Enum.map(fn {{bid, _, _}, rank} -> bid * rank end)
     |> Enum.sum()
   end
 
-  def part2(_args) do
-    """
-    32T3K 765
-    T55J5 684
-    KK677 28
-    KTJJT 220
-    QQQJA 483
-    """
-    |> parse()
-    |> add_type1()
-  end
+  def part1(args), do: process(args, @card_values, &find_type1/1)
+
+  def part2(args), do: process(args, @card_values2, &find_type2/1)
 end
