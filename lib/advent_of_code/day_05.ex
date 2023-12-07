@@ -2,7 +2,6 @@ defmodule AdventOfCode.Day05 do
   import Enum
 
   @order ["soil", "fertilizer", "water", "light", "temperature", "humidity", "location"]
-  @max_int 2_453_327_846_000_000_000
 
   def parse_block("seeds: " <> seeds) do
     seeds |> String.trim() |> String.split(" ", trim: true) |> Enum.map(&String.to_integer/1)
