@@ -61,18 +61,23 @@ defmodule AdventOfCode.Day07 do
     hd(freq_list) - length(freq_list)
   end
 
+  def add_type_value(hands, find_type_function),
+    do: hands |> Enum.map(fn {bid, charl} -> {bid, charl, find_type_function.(charl)} end)
+
+  def rank_hands(hands), do: Enum.sort(hands, &stronger/2) |> Enum.with_index(1)
+
+  def compute_score(ranked_hands),
+    do:
+      ranked_hands
+      |> Enum.map(fn {{bid, _, _}, rank} -> bid * rank end)
+      |> Enum.sum()
+
   def process(args, card_values, find_type_function) do
     args
     |> parse(card_values)
-    # Add the type value to the tuple
-    |> Enum.map(fn {bid, charl} -> {bid, charl, find_type_function.(charl)} end)
-    # Sort by type, then by hand
-    |> Enum.sort(&stronger/2)
-    # Add the rank to the tuple
-    |> Enum.with_index(1)
-    # Multiply the bid by the rank and sum
-    |> Enum.map(fn {{bid, _, _}, rank} -> bid * rank end)
-    |> Enum.sum()
+    |> add_type_value(find_type_function)
+    |> rank_hands()
+    |> compute_score()
   end
 
   def part1(args), do: process(args, @card_values, &find_type1/1)
