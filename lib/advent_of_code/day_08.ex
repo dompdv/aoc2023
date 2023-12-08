@@ -32,6 +32,63 @@ defmodule AdventOfCode.Day08 do
 
   def part2(args) do
     {inst, graph} = args |> parse()
+
+    start_keys =
+      Map.keys(graph) |> Enum.filter(fn key -> String.ends_with?(key, "A") end)
+
+    end_keys =
+      Map.keys(graph) |> Enum.filter(fn key -> String.ends_with?(key, "Z") end) |> MapSet.new()
+
+    {start_keys, end_keys} |> IO.inspect(label: "start/end keys")
+
+    s = Enum.at(start_keys, 2)
+
+    inst
+    |> Enum.with_index()
+    |> Stream.cycle()
+    |> Enum.reduce_while(
+      {0, s, MapSet.new(), []},
+      fn {dir, c}, {counter, pos, final_states, z_states} ->
+        next_pos = hop(pos, dir, graph)
+
+        if MapSet.member?(final_states, {next_pos, c}) do
+          {:halt, {counter + 1, next_pos, c, final_states, z_states}}
+        else
+          z_states =
+            if MapSet.member?(end_keys, next_pos),
+              do: [counter + 1 | z_states],
+              else: z_states
+
+          final_states =
+            if MapSet.member?(end_keys, next_pos),
+              do: MapSet.put(final_states, {next_pos, c}),
+              else: final_states
+
+          {:cont, {counter + 1, next_pos, final_states, z_states}}
+        end
+      end
+    )
+  end
+
+  def part21(args) do
+    {inst, graph} = args |> test3() |> parse()
+
+    start_keys =
+      Map.keys(graph) |> Enum.filter(fn key -> String.ends_with?(key, "A") end)
+
+    end_keys =
+      Map.keys(graph) |> Enum.filter(fn key -> String.ends_with?(key, "Z") end) |> MapSet.new()
+
+    Stream.cycle(inst)
+    |> Enum.reduce_while({0, start_keys}, fn dir, {counter, pos} ->
+      next_pos = Enum.map(pos, fn p -> hop(p, dir, graph) end)
+
+      if Enum.all?(next_pos, fn p -> MapSet.member?(end_keys, p) end),
+        do: {:halt, counter + 1},
+        else: {:cont, {counter + 1, next_pos}}
+    end)
+
+    {start_keys, end_keys}
   end
 
   def test(_) do
@@ -55,5 +112,19 @@ defmodule AdventOfCode.Day08 do
     AAA = (BBB, BBB)
     BBB = (AAA, ZZZ)
     ZZZ = (ZZZ, ZZZ)
+    """
+
+  def test3(_),
+    do: """
+    LR
+
+    11A = (11B, XXX)
+    11B = (XXX, 11Z)
+    11Z = (11B, XXX)
+    22A = (22B, XXX)
+    22B = (22C, 22C)
+    22C = (22Z, 22Z)
+    22Z = (22B, 22B)
+    XXX = (XXX, XXX)
     """
 end
