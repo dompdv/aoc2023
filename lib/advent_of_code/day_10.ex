@@ -5,6 +5,23 @@ defmodule AdventOfCode.Day10 do
   @dir [:west, :east, :north, :south]
   @delta_dir zip(@dir, @neighbors)
 
+  def print(graph, cycle) do
+    columns = for({{_, c}, _} <- graph, do: c) |> max()
+    rows = for({{r, _}, _} <- graph, do: r) |> max()
+
+    for r <- 0..rows do
+      for c <- 0..columns do
+        cell = {r, c}
+
+        if cell in cycle,
+          do: IO.write("X"),
+          else: IO.write(if graph[cell] == [], do: ".", else: "#")
+      end
+
+      IO.puts("")
+    end
+  end
+
   def parse_line(line) do
     line
     |> to_charlist()
@@ -64,9 +81,11 @@ defmodule AdventOfCode.Day10 do
   def search_cycle([], _, visited), do: visited
 
   def search_cycle([node | to_visit], graph, visited) do
-    if node in visited,
-      do: search_cycle(to_visit, graph, visited),
-      else: search_cycle(connected_nodes(graph, node) ++ to_visit, graph, [node | visited])
+    connected = connected_nodes(graph, node) |> filter(fn n -> n not in visited end)
+
+    if connected == [],
+      do: search_cycle(to_visit, graph, [node | visited]),
+      else: search_cycle([hd(connected) | to_visit], graph, [node | visited])
   end
 
   def part1(args) do
@@ -74,53 +93,13 @@ defmodule AdventOfCode.Day10 do
     search_cycle([start], graph, []) |> length() |> div(2)
   end
 
-  def connex([], _, _, _, _), do: :in
-
-  def connex([node | to_visit], component, graph, keys, cycle) do
-    neighbors = map(@neighbors, fn d -> delta(node, d) end)
-
-    if any?(neighbors, fn n -> n not in keys end) do
-      :out
-    else
-      p = filter(neighbors, fn n -> n not in cycle and n not in component end)
-
-      if any?(p, fn n -> graph[n] != [] end),
-        do: :out,
-        else: connex(to_visit ++ p, [node | component], graph, keys, cycle)
-    end
-  end
+  def segments(l), do: chunk_every(l ++ [hd(l)], 2, 1)
 
   def part2(args) do
-    {graph, start} = args |> test4() |> parse()
-    cycle = search_cycle([start], graph, []) |> MapSet.new() |> IO.inspect()
+    {graph, start} = args |> test() |> parse()
+    cycle = search_cycle([start], graph, []) |> IO.inspect()
     print(graph, cycle)
-
-    for(
-      {cell, _} <- graph,
-      graph[cell] == [],
-      cell not in cycle,
-      connex([cell], [cell], graph, Map.keys(graph), cycle) == :in,
-      do: cell
-    )
-
-    #    |> count()
-  end
-
-  def print(graph, cycle) do
-    columns = for({{_, c}, _} <- graph, do: c) |> max()
-    rows = for({{r, _}, _} <- graph, do: r) |> max()
-
-    for r <- 0..rows do
-      for c <- 0..columns do
-        cell = {r, c}
-
-        if cell in cycle,
-          do: IO.write("X"),
-          else: IO.write(if graph[cell] == [], do: ".", else: "#")
-      end
-
-      IO.puts("")
-    end
+    cycle |> IO.inspect() |> segments() |> IO.inspect()
   end
 
   def test(_) do
@@ -175,13 +154,5 @@ defmodule AdventOfCode.Day10 do
     ....FJL-7.||.||||...
     ....L---J.LJ.LJLJ...
     """
-  end
-
-  def secret_santa() do
-    noms = ~w(diane dominique marius samuel mathilde annie noé isabelle)
-
-    Stream.repeatedly(fn -> zip(noms, shuffle(noms)) end)
-    |> Stream.filter(fn l -> all?(l, fn {a, b} -> a != b end) end)
-    |> take(1)
   end
 end
