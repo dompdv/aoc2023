@@ -1,8 +1,9 @@
 defmodule AdventOfCode.Day10 do
   import Enum
 
+  @neighbors [{0, -1}, {0, 1}, {-1, 0}, {1, 0}]
   @dir [:west, :east, :north, :south]
-  @delta_dir [{:west, {0, -1}}, {:east, {0, 1}}, {:north, {-1, 0}}, {:south, {1, 0}}]
+  @delta_dir zip(@dir, @neighbors)
 
   def parse_line(line) do
     line
@@ -73,7 +74,53 @@ defmodule AdventOfCode.Day10 do
     search_cycle([start], graph, []) |> length() |> div(2)
   end
 
-  def part2(_args) do
+  def connex([], _, _, _, _), do: :in
+
+  def connex([node | to_visit], component, graph, keys, cycle) do
+    neighbors = map(@neighbors, fn d -> delta(node, d) end)
+
+    if any?(neighbors, fn n -> n not in keys end) do
+      :out
+    else
+      p = filter(neighbors, fn n -> n not in cycle and n not in component end)
+
+      if any?(p, fn n -> graph[n] != [] end),
+        do: :out,
+        else: connex(to_visit ++ p, [node | component], graph, keys, cycle)
+    end
+  end
+
+  def part2(args) do
+    {graph, start} = args |> test4() |> parse()
+    cycle = search_cycle([start], graph, []) |> MapSet.new() |> IO.inspect()
+    print(graph, cycle)
+
+    for(
+      {cell, _} <- graph,
+      graph[cell] == [],
+      cell not in cycle,
+      connex([cell], [cell], graph, Map.keys(graph), cycle) == :in,
+      do: cell
+    )
+
+    #    |> count()
+  end
+
+  def print(graph, cycle) do
+    columns = for({{_, c}, _} <- graph, do: c) |> max()
+    rows = for({{r, _}, _} <- graph, do: r) |> max()
+
+    for r <- 0..rows do
+      for c <- 0..columns do
+        cell = {r, c}
+
+        if cell in cycle,
+          do: IO.write("X"),
+          else: IO.write(if graph[cell] == [], do: ".", else: "#")
+      end
+
+      IO.puts("")
+    end
   end
 
   def test(_) do
@@ -88,21 +135,45 @@ defmodule AdventOfCode.Day10 do
 
   def test2(_) do
     """
-    ..F7.
-    .FJ|.
-    SJ.L7
-    |F--J
-    LJ...
+    ...........
+    .S-------7.
+    .|F-----7|.
+    .||.....||.
+    .||.....||.
+    .|L-7.F-J|.
+    .|..|.|..|.
+    .L--J.L--J.
+    ...........
     """
   end
 
   def test3(_) do
     """
-    -L|F7
-    7S-7|
-    L|7||
-    -L-J|
-    L|-JF
+    FF7FSF7F7F7F7F7F---7
+    L|LJ||||||||||||F--J
+    FL-7LJLJ||||||LJL-77
+    F--JF--7||LJLJIF7FJ-
+    L---JF-JLJIIIIFJLJJ7
+    |F|F-JF---7IIIL7L|7|
+    |FFJF7L7F-JF7IIL---7
+    7-L-JL7||F7|L7F-7F7|
+    L.L7LFJ|||||FJL7||LJ
+    L7JLJL-JLJLJL--JLJ.L
+    """
+  end
+
+  def test4(_) do
+    """
+    .F----7F7F7F7F-7....
+    .|F--7||||||||FJ....
+    .||.FJ||||||||L7....
+    FJL7L7LJLJ||LJ.L-7..
+    L--J.L7...LJS7F-7L7.
+    ....F-J..F7FJ|L7L7L7
+    ....L7.F7||L7|.L7L7|
+    .....|FJLJ|FJ|F7|.LJ
+    ....FJL-7.||.||||...
+    ....L---J.LJ.LJLJ...
     """
   end
 
