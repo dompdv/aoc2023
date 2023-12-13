@@ -33,10 +33,11 @@ defmodule AdventOfCode.Day12 do
 
   def groups(l) do
     {x, acc} =
-      reduce(l, {0, []}, fn
-        0, {0, acc} -> {0, acc}
-        0, {x, acc} -> {0, [x | acc]}
-        1, {x, acc} -> {x + 1, acc}
+      reduce_while(l, {0, []}, fn
+        0, {0, acc} -> {:cont, {0, acc}}
+        0, {x, acc} -> {:cont, {0, [x | acc]}}
+        1, {x, acc} -> {:cont, {x + 1, acc}}
+        ??, {x, acc} -> {:halt, {x, acc}}
       end)
 
     reverse(if x == 0, do: acc, else: [x | acc])
@@ -55,24 +56,56 @@ defmodule AdventOfCode.Day12 do
     for {c, i} <- with_index(line), do: Map.get(replacement, i, c)
   end
 
-  def solve({line, numbers}) do
+  def solve_brute_force({line, numbers}) do
     qm = for {x, i} <- with_index(line), x == ??, do: i
     nqm = count(qm)
 
     Stream.map(0..(2 ** nqm - 1), fn v ->
       replacement = zip(qm, to_binary(v) |> pad_0(nqm)) |> Map.new()
-      new_line = replace(line, replacement)
-      groups(new_line)
+      line |> replace(replacement) |> groups()
     end)
     |> Stream.filter(&(&1 == numbers))
     |> count()
   end
 
   def part1(args) do
-    args |> parse() |> map(&solve/1) |> sum()
+    args |> parse() |> map(&solve_brute_force/1) |> sum()
   end
 
-  def part2(_args) do
+  def possibilities(replacement, [], line, numbers, _) do
+    if line |> replace(replacement) |> groups() == numbers, do: 1, else: 0
+  end
+
+  def possibilities(replacement, [f | r], line, numbers, sn) do
+    new_line = replace(line, replacement)
+
+    if count(new_line, fn x -> x == 1 end) > sn do
+      0
+    else
+      partials = groups(new_line)
+      compare_to = slice(numbers, 0, length(partials))
+
+      if partials > compare_to do
+        0
+      else
+        for(i <- 0..1, do: possibilities(Map.put(replacement, f, i), r, line, numbers, sn))
+        |> sum()
+      end
+    end
+  end
+
+  def solve2({line, numbers}) do
+    sn = sum(numbers)
+    [f | r] = for {x, i} <- with_index(line), x == ??, do: i
+    replacement = %{}
+
+    for(i <- 0..1, do: possibilities(Map.put(replacement, f, i), r, line, numbers, sn))
+    |> sum()
+  end
+
+  def part2(args) do
+    # |> map(&solve_brute_force/1) |> sum()
+    args |> parse() |> map(&solve2/1) |> sum()
   end
 
   def test(_) do
