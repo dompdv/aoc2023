@@ -11,39 +11,66 @@ defmodule AdventOfCode.Day12 do
 
   # End of the characters
   def solve([], 0, []), do: 1
-
   def solve([], _counter, []), do: 0
-
   def solve([], counter, [counter]), do: 1
   def solve([], _counter, _numbers), do: 0
 
   # Processing a . character following another . or the start of the line: just move on
-  def solve([?. | line], 0, numbers),
-    do: solve(line, 0, numbers)
+  def solve([?. | line], 0, numbers), do: solve(line, 0, numbers)
 
   # Processing a . character following a # character but there is no more "numbers" in the list: dead end
   def solve([?. | _line], _counter, []), do: 0
 
   # Processing a . character following a # character: compare the accumulated counter with the next number in the list. If different, dead end, else move on with the rest of the numbers
-  def solve([?. | line], counter, [n | numbers]) do
-    if counter != n, do: 0, else: solve(line, 0, numbers)
-  end
+  def solve([?. | line], counter, [n | numbers]),
+    do: if(counter != n, do: 0, else: solve(line, 0, numbers))
 
   # Processing a # character following another # or the start of the line, but with no numbers left: dead end
   def solve([?# | _line], _counter, []), do: 0
 
   # Processing a # character following another # or the start of the line: just move on
-  def solve([?# | line], counter, numbers) do
-    solve(line, counter + 1, numbers)
+  def solve([?# | line], counter, [h | _] = numbers) do
+    if counter >= h, do: 0, else: solve(line, counter + 1, numbers)
   end
 
   # Processing a ? character adding the two cases
-  def solve([?? | line], counter, numbers) do
-    solve([?. | line], counter, numbers) + solve([?# | line], counter, numbers)
+  def solve([?? | line] = l, counter, numbers) do
+    case retrieve({l, counter, numbers}) do
+      nil ->
+        result =
+          if length(line) + counter + 1 < sum(numbers) + length(numbers) - 1,
+            do: 0,
+            else: solve([?# | line], counter, numbers) + solve([?. | line], counter, numbers)
+
+        store({l, counter, numbers}, result)
+
+      result ->
+        result
+    end
+  end
+
+  def create_memoization_store() do
+    if :ets.whereis(:memo) != :undefined, do: :ets.delete(:memo)
+    :ets.new(:memo, [:set, :protected, :named_table])
+  end
+
+  def store(key, value) do
+    :ets.insert(:memo, {key, value})
+    value
+  end
+
+  def retrieve(key) do
+    case :ets.lookup(:memo, key) do
+      [{_, result}] ->
+        result
+
+      [] ->
+        nil
+    end
   end
 
   def solve({line, numbers}) do
-    #    IO.inspect({line, numbers})
+    create_memoization_store()
     solve(line, 0, numbers)
   end
 
