@@ -72,40 +72,62 @@ defmodule AdventOfCode.Day12 do
     args |> parse() |> map(&solve_brute_force/1) |> sum()
   end
 
-  def possibilities(replacement, [], line, numbers, _) do
-    if line |> replace(replacement) |> groups() == numbers, do: 1, else: 0
+  def solve3([], {counter, acc}, numbers) do
+    acc = if counter == 0, do: acc, else: acc ++ [counter]
+    if acc == numbers, do: 1, else: 0
   end
 
-  def possibilities(replacement, [f | r], line, numbers, sn) do
-    new_line = replace(line, replacement)
+  def solve3([0 | line], {0, acc}, numbers),
+    do: solve3(line, {0, acc}, numbers)
 
-    if count(new_line, fn x -> x == 1 end) > sn do
-      0
-    else
-      partials = groups(new_line)
-      compare_to = slice(numbers, 0, length(partials))
+  def solve3([0 | line], {counter, acc}, numbers) do
+    acc = acc ++ [counter]
 
-      if partials > compare_to do
-        0
+    if acc > numbers,
+      do: 0,
+      else: solve3(line, {0, acc}, numbers)
+  end
+
+  def solve3([1 | line], {counter, acc}, numbers) do
+    if acc ++ [counter + 1] > numbers,
+      do: 0,
+      else: solve3(line, {counter + 1, acc}, numbers)
+  end
+
+  def solve3([?? | line], {counter, acc}, numbers) do
+    case0 =
+      if counter == 0 do
+        solve3(line, {counter, acc}, numbers)
       else
-        for(i <- 0..1, do: possibilities(Map.put(replacement, f, i), r, line, numbers, sn))
-        |> sum()
+        new_acc = acc ++ [counter]
+
+        if new_acc > numbers,
+          do: 0,
+          else: solve3(line, {0, new_acc}, numbers)
       end
-    end
+
+    case1 =
+      if acc ++ [counter + 1] > numbers,
+        do: 0,
+        else: solve3(line, {counter + 1, acc}, numbers)
+
+    case0 + case1
   end
 
-  def solve2({line, numbers}) do
-    sn = sum(numbers)
-    [f | r] = for {x, i} <- with_index(line), x == ??, do: i
-    replacement = %{}
+  def solve3({line, numbers}) do
+    solve3(line, {0, []}, numbers)
+  end
 
-    for(i <- 0..1, do: possibilities(Map.put(replacement, f, i), r, line, numbers, sn))
-    |> sum()
+  def unfold_paper({line, numbers}) do
+    {List.duplicate(line, 5) |> Enum.intersperse([??]) |> List.flatten(),
+     List.duplicate(numbers, 5) |> List.flatten()}
   end
 
   def part2(args) do
     # |> map(&solve_brute_force/1) |> sum()
-    args |> parse() |> map(&solve2/1) |> sum()
+    # args |> parse() |> test() |> map(fn row -> row |> unfold_paper() |> solve3() end) |> sum()
+    #    args |> test() |> parse() |> hd() |> solve3()
+    args |> test() |> parse() |> map(&unfold_paper/1) |> map(&solve3/1) |> sum()
   end
 
   def test(_) do
