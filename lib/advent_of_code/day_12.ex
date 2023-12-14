@@ -6,31 +6,18 @@ defmodule AdventOfCode.Day12 do
   def parse_record(record) do
     [row, numbers] = String.split(record, " ", trim: true)
     numbers = numbers |> String.split(",", trim: true) |> map(&String.to_integer/1)
-
-    row =
-      row
-      |> String.replace("#", "1")
-      |> String.replace(".", "0")
-      |> to_charlist()
-      |> map(fn
-        ?? -> ??
-        c -> c - ?0
-      end)
-
-    {row, numbers}
+    {row |> to_charlist(), numbers}
   end
-
-  def part1(args), do: args |> parse() |> map(&solve/1) |> sum()
 
   def solve([], {counter, acc}, numbers) do
     acc = if counter == 0, do: acc, else: acc ++ [counter]
     if acc == numbers, do: 1, else: 0
   end
 
-  def solve([0 | line], {0, acc}, numbers),
+  def solve([?. | line], {0, acc}, numbers),
     do: solve(line, {0, acc}, numbers)
 
-  def solve([0 | line], {counter, acc}, numbers) do
+  def solve([?. | line], {counter, acc}, numbers) do
     acc = acc ++ [counter]
 
     if acc > numbers,
@@ -38,7 +25,7 @@ defmodule AdventOfCode.Day12 do
       else: solve(line, {0, acc}, numbers)
   end
 
-  def solve([1 | line], {counter, acc}, numbers) do
+  def solve([?# | line], {counter, acc}, numbers) do
     if acc ++ [counter + 1] > numbers,
       do: 0,
       else: solve(line, {counter + 1, acc}, numbers)
@@ -65,13 +52,16 @@ defmodule AdventOfCode.Day12 do
   end
 
   def solve({line, numbers}) do
-    solve(line, {0, []}, numbers)
+    IO.inspect({line, numbers})
+    solve(line, {0, []}, numbers) |> IO.inspect()
   end
 
   def unfold_paper({line, numbers}) do
     {List.duplicate(line, 5) |> Enum.intersperse([??]) |> List.flatten(),
      List.duplicate(numbers, 5) |> List.flatten()}
   end
+
+  def part1(args), do: args |> parse() |> map(&solve/1) |> sum()
 
   def part2(args) do
     args |> test() |> parse() |> map(&unfold_paper/1) |> map(&solve/1) |> sum()
