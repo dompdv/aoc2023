@@ -9,52 +9,42 @@ defmodule AdventOfCode.Day12 do
     {row |> to_charlist(), numbers}
   end
 
-  def solve([], {counter, acc}, numbers) do
-    acc = if counter == 0, do: acc, else: acc ++ [counter]
-    if acc == numbers, do: 1, else: 0
+  # End of the characters
+  def solve([], 0, []), do: 1
+
+  def solve([], _counter, []), do: 0
+
+  def solve([], counter, [counter]), do: 1
+  def solve([], _counter, _numbers), do: 0
+
+  # Processing a . character following another . or the start of the line: just move on
+  def solve([?. | line], 0, numbers),
+    do: solve(line, 0, numbers)
+
+  # Processing a . character following a # character but there is no more "numbers" in the list: dead end
+  def solve([?. | _line], _counter, []), do: 0
+
+  # Processing a . character following a # character: compare the accumulated counter with the next number in the list. If different, dead end, else move on with the rest of the numbers
+  def solve([?. | line], counter, [n | numbers]) do
+    if counter != n, do: 0, else: solve(line, 0, numbers)
   end
 
-  def solve([?. | line], {0, acc}, numbers),
-    do: solve(line, {0, acc}, numbers)
+  # Processing a # character following another # or the start of the line, but with no numbers left: dead end
+  def solve([?# | _line], _counter, []), do: 0
 
-  def solve([?. | line], {counter, acc}, numbers) do
-    acc = acc ++ [counter]
-
-    if acc > numbers,
-      do: 0,
-      else: solve(line, {0, acc}, numbers)
+  # Processing a # character following another # or the start of the line: just move on
+  def solve([?# | line], counter, numbers) do
+    solve(line, counter + 1, numbers)
   end
 
-  def solve([?# | line], {counter, acc}, numbers) do
-    if acc ++ [counter + 1] > numbers,
-      do: 0,
-      else: solve(line, {counter + 1, acc}, numbers)
-  end
-
-  def solve([?? | line], {counter, acc}, numbers) do
-    case0 =
-      if counter == 0 do
-        solve(line, {counter, acc}, numbers)
-      else
-        new_acc = acc ++ [counter]
-
-        if new_acc > numbers,
-          do: 0,
-          else: solve(line, {0, new_acc}, numbers)
-      end
-
-    case1 =
-      if acc ++ [counter + 1] > numbers,
-        do: 0,
-        else: solve(line, {counter + 1, acc}, numbers)
-
-    case0 + case1
+  # Processing a ? character adding the two cases
+  def solve([?? | line], counter, numbers) do
+    solve([?. | line], counter, numbers) + solve([?# | line], counter, numbers)
   end
 
   def solve({line, numbers}) do
     #    IO.inspect({line, numbers})
-    # |> IO.inspect()
-    solve(line, {0, []}, numbers)
+    solve(line, 0, numbers)
   end
 
   def unfold_paper({line, numbers}) do
@@ -64,7 +54,7 @@ defmodule AdventOfCode.Day12 do
 
   def part1(args), do: args |> parse() |> map(&solve/1) |> sum()
 
-  def part2(args), do: args |> test() |> parse() |> map(&unfold_paper/1) |> map(&solve/1) |> sum()
+  def part2(args), do: args |> parse() |> map(&unfold_paper/1) |> map(&solve/1) |> sum()
 
   def test(_) do
     """
