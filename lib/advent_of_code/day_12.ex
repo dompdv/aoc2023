@@ -52,8 +52,9 @@ defmodule AdventOfCode.Day12 do
   end
 
   def solve({line, numbers}) do
-    IO.inspect({line, numbers})
-    solve(line, {0, []}, numbers) |> IO.inspect()
+    #    IO.inspect({line, numbers})
+    # |> IO.inspect()
+    solve(line, {0, []}, numbers)
   end
 
   def unfold_paper({line, numbers}) do
@@ -63,9 +64,7 @@ defmodule AdventOfCode.Day12 do
 
   def part1(args), do: args |> parse() |> map(&solve/1) |> sum()
 
-  def part2(args) do
-    args |> test() |> parse() |> map(&unfold_paper/1) |> map(&solve/1) |> sum()
-  end
+  def part2(args), do: args |> test() |> parse() |> map(&unfold_paper/1) |> map(&solve/1) |> sum()
 
   def test(_) do
     """
