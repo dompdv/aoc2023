@@ -35,6 +35,7 @@ defmodule AdventOfCode.Day13 do
     |> chunk_every(2, 1, :discard)
     # Potential symetry: the 2 integers are equal
     |> filter(fn [{x, _}, {y, _}] -> x == y end)
+    # retain only the index i
     |> map(fn [{_, _}, {_, i}] -> i end)
     # Check if the potential symmetry is a real symmetry
     |> filter(&pivot?(&1, list))
@@ -42,9 +43,9 @@ defmodule AdventOfCode.Day13 do
 
   # Detect symmetries in a pattern and compute the score
   def score([lines, rows]) do
-    v = lines |> sym_list() |> sum()
-    h = rows |> sym_list() |> sum()
-    h + 100 * v
+    h = lines |> sym_list() |> sum()
+    v = rows |> sym_list() |> sum()
+    h * 100 + v
   end
 
   def switch(1), do: 0
@@ -59,59 +60,31 @@ defmodule AdventOfCode.Day13 do
     end
   end
 
-  def value([{[{_, i}], []}]), do: i * 100
-  def value([{[], [{_, i}]}]), do: i
+  def value([{[i], []}]), do: i * 100
+  def value([{[], [i]}]), do: i
 
   # reverse each cell in a table and check the symmetries for each resulting table
   def generate_nudge(table) do
     rows = length(table)
     lines = length(at(table, 0))
+    # Symmetries before nudge
     [initial_hsym, initial_vsym] = table |> process_pattern() |> map(&sym_list/1)
 
     for r <- 0..(rows - 1), l <- 0..(lines - 1) do
+      # Scitch one cell and detect symmetries
       [current_hsym, current_vsym] = nudge(table, r, l) |> process_pattern() |> map(&sym_list/1)
+      # remove the initial symmetries
       {current_hsym -- initial_hsym, current_vsym -- initial_vsym}
     end
+    # remove when there is no symmetry
     |> reject(fn {hs, vs} -> hs == [] and vs == [] end)
+    # dedpulicate (there are always the symmetric of the nugded cell)
     |> uniq()
+    # score
     |> value()
   end
 
   def part1(args), do: args |> parse() |> map(&process_pattern/1) |> map(&score/1) |> sum()
 
-  def part2(args) do
-    args |> parse() |> map(&generate_nudge/1) |> sum()
-  end
-
-  def test(_) do
-    """
-    #.##..##.
-    ..#.##.#.
-    ##......#
-    ##......#
-    ..#.##.#.
-    ..##..##.
-    #.#.##.#.
-
-    #...##..#
-    #....#..#
-    ..##..###
-    #####.##.
-    #####.##.
-    ..##..###
-    #....#..#
-    """
-  end
-
-  def test2(_) do
-    """
-    #.##..##.
-    ..#.##.#.
-    ##......#
-    ##......#
-    ..#.##.#.
-    ..##..##.
-    #.#.##.#.
-    """
-  end
+  def part2(args), do: args |> parse() |> map(&generate_nudge/1) |> sum()
 end
