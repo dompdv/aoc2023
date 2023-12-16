@@ -8,8 +8,11 @@ defmodule AdventOfCode.Day14 do
   def parse_line(line), do: line |> to_charlist() |> map(&to_num/1)
 
   def parse(args) do
-    rockroll =
-      for {row, r} <- args |> String.split("\n", trim: true) |> with_index(),
+    rows = args |> String.split("\n", trim: true)
+    side = length(rows)
+
+    {rocks, rolls} =
+      for {row, r} <- rows |> with_index(),
           {cell, c} <- row |> to_charlist() |> with_index() do
         case cell do
           ?. -> nil
@@ -17,98 +20,69 @@ defmodule AdventOfCode.Day14 do
           ?O -> {{r, c}, :roll}
         end
       end
+      |> reject(&(&1 == nil))
+      |> split_with(&(elem(&1, 1) == :rock))
+      |> then(fn {rocks, rolls} ->
+        {rocks |> map(&elem(&1, 0)), rolls |> map(&elem(&1, 0))}
+      end)
 
-    {max(for {{r, _}, _} <- rockroll, do: r),
-     rockroll
-     |> reject(&(&1 == nil))
-     |> with_index()
-     |> map(fn {{pos, type}, i} -> {i, {pos, type}} end)
-     |> Map.new()}
+    {side, rocks, rolls}
   end
 
-  def north_blocked_by(rockroll, {row, col}) do
-    case filter(rockroll, fn {_, {{r, c}, _}} -> r < row and c == col end) do
-      [] -> nil
-      l -> max_by(l, fn {_, {{r, _}, _}} -> r end)
-    end
-  end
-
-  def south_blocked_by(rockroll, {row, col}) do
-    case filter(rockroll, fn {_, {{r, c}, _}} -> r > row and c == col end) do
-      [] -> nil
-      l -> min_by(l, fn {_, {{r, _}, _}} -> r end)
-    end
-  end
-
-  def west_blocked_by(rockroll, {row, col}) do
-    case filter(rockroll, fn {_, {{r, c}, _}} -> c < col and r == row end) do
-      [] -> nil
-      l -> max_by(l, fn {_, {{_, c}, _}} -> c end)
-    end
-  end
-
-  def east_blocked_by(rockroll, {row, col}) do
-    case filter(rockroll, fn {_, {{r, c}, _}} -> c > col and r == row end) do
-      [] -> nil
-      l -> min_by(l, fn {_, {{_, c}, _}} -> c end)
-    end
-  end
-
-  def find_blockers(rockroll) do
-    for {i, {pos, type}} = r <- rockroll do
-      if type == :rock do
-        r
-      else
-        blockers = %{
-          :north => north_blocked_by(rockroll, pos),
-          :south => south_blocked_by(rockroll, pos),
-          :east => east_blocked_by(rockroll, pos),
-          :west => west_blocked_by(rockroll, pos)
-        }
-
-        {i, {pos, type, blockers}}
+  def map_by_rc(pos_list) do
+    reduce(
+      pos_list,
+      {%{}, %{}},
+      fn {r, c}, {by_r, by_c} ->
+        {Map.update(by_r, r, [c], fn l -> [c | l] end),
+         Map.update(by_c, c, [r], fn l -> [r | l] end)}
       end
-    end
-    |> Map.new()
+    )
   end
 
-  def build_dependent_list(rockroll, s, acc, direction) do
-    case find(rockroll, fn
-           {_, {_, :roll, %{^direction => {^s, _}}}} -> true
-           _ -> false
-         end) do
-      nil ->
-        reverse(acc)
+  def find_up(_x, nil), do: 0
 
-      {i, _} ->
-        build_dependent_list(rockroll, i, [i | acc], direction)
+  def find_up(x, l) do
+    case filter(l, &(&1 < x)) do
+      [] -> 0
+      m -> max(m) + 1
     end
   end
 
-  def to_graph(rockroll, direction) do
-    # Find the first roll in the direction
-    filter(rockroll, fn
-      {_, {_, :roll, %{^direction => nil}}} -> true
-      {_, {_, :roll, %{^direction => {_, {_, :rock}}}}} -> true
-      _ -> false
-    end)
-    |> map(&elem(&1, 0))
-    |> map(fn s -> build_dependent_list(rockroll, s, [s], direction) end)
+  def move_north(side, {rocks_by_r, rocks_by_c}, {rolls_by_r, _rolls_by_c}) do
+    reduce(
+      0..(side - 1),
+      %{},
+      fn r, moved_rolls_by_c_1 ->
+        # IO.inspect({r, rolls_by_r[r], moved_rolls_by_c_1}, label: "r")
+        rolls_in_this_row = Map.get(rolls_by_r, r, [])
+
+        reduce(
+          rolls_in_this_row,
+          moved_rolls_by_c_1,
+          fn c, moved_rolls_by_c_2 ->
+            #            if c == 2, do: IO.inspect({r, c, moved_rolls_by_c_2, rocks_by_c[c]}, label: "c")
+
+            blocking_roll =
+              if Map.has_key?(moved_rolls_by_c_2, c), do: hd(moved_rolls_by_c_2[c]) + 1, else: 0
+
+            blocking_rock = find_up(r, rocks_by_c[c])
+
+            new_row = Kernel.max(blocking_rock, blocking_roll)
+            Map.update(moved_rolls_by_c_2, c, [new_row], fn l -> [new_row | l] end)
+          end
+        )
+      end
+    )
   end
 
-  def move_from(l, rockroll, direction, computed) do
-
-  end
-  end
   def part1(args) do
-    {_side, rockroll} = args |> test() |> parse()
-    blockers = rockroll |> find_blockers()
+    {side, rocks, rolls} = args |> parse()
 
-    computation_graph =
-      for(dir <- [:north, :south, :east, :west], do: {dir, to_graph(blockers, dir)}) |> Map.new()
-
-    direction = :north
-    reduce(computation_graph, Map.new(), fn l, acc -> move_from(l, blockers, direction, acc) end)
+    for {_r, l} <- move_north(side, map_by_rc(rocks), map_by_rc(rolls)) do
+      sum(for r <- l, do: side - r)
+    end
+    |> sum()
   end
 
   def part2(_args) do
