@@ -29,6 +29,7 @@ defmodule AdventOfCode.Day14 do
     {side, rocks, rolls}
   end
 
+  # Map like %{row => [columns of the rolls in this row], column => [rows of the rolls in this column]}
   def map_by_rc(pos_list) do
     reduce(
       pos_list,
@@ -58,7 +59,7 @@ defmodule AdventOfCode.Day14 do
     end
   end
 
-  def move_north(side, rolls, {_rocks_by_r, rocks_by_c}) do
+  def move_north(rolls, side, {_rocks_by_r, rocks_by_c}) do
     # Create a map of rolls by row and column
     {rolls_by_r, _rolls_by_c} = map_by_rc(rolls)
 
@@ -96,7 +97,7 @@ defmodule AdventOfCode.Day14 do
     for {c, l} <- new_rolls_by_c, r <- l, do: {r, c}
   end
 
-  def move_south(side, rolls, {_rocks_by_r, rocks_by_c}) do
+  def move_south(rolls, side, {_rocks_by_r, rocks_by_c}) do
     {rolls_by_r, _rolls_by_c} = map_by_rc(rolls)
 
     new_rolls_by_c =
@@ -125,7 +126,7 @@ defmodule AdventOfCode.Day14 do
     for {c, l} <- new_rolls_by_c, r <- l, do: {r, c}
   end
 
-  def move_west(side, rolls, {rocks_by_r, _rocks_by_c}) do
+  def move_west(rolls, side, {rocks_by_r, _rocks_by_c}) do
     # Create a map of rolls by row and column
     {_rolls_by_r, rolls_by_c} = map_by_rc(rolls)
 
@@ -163,7 +164,7 @@ defmodule AdventOfCode.Day14 do
     for {r, l} <- new_rolls_by_r, c <- l, do: {r, c}
   end
 
-  def move_east(side, rolls, {rocks_by_r, _rocks_by_c}) do
+  def move_east(rolls, side, {rocks_by_r, _rocks_by_c}) do
     {_rolls_by_r, rolls_by_c} = map_by_rc(rolls)
 
     new_rolls_by_r =
@@ -190,35 +191,56 @@ defmodule AdventOfCode.Day14 do
       )
 
     # recreate the list of rolls by row and column
-    # for {r, l} <- new_rolls_by_r, c <- l, do: {r, c}
+    for {r, l} <- new_rolls_by_r, c <- l, do: {r, c}
   end
 
   def part1(args) do
     {side, rocks, rolls} = args |> parse()
 
-    for {r, _c} <- move_north(side, rolls, map_by_rc(rocks)) do
-      side - r
-    end
+    move_north(rolls, side, map_by_rc(rocks))
+    |> map(fn {r, _c} -> side - r end)
     |> sum()
   end
 
   def part2(args) do
-    {side, rocks, rolls} = args |> test() |> parse()
-    move_east(side, rolls, map_by_rc(rocks))
-  end
+    {side, rocks, rolls} = args |> parse()
+    mapped_rocks = map_by_rc(rocks)
 
-  def test(_) do
-    """
-    O....#....
-    O.OO#....#
-    .....##...
-    OO.#O....O
-    .O.....O#.
-    O.#..O.#.#
-    ..O..#O..O
-    .......O..
-    #....###..
-    #OO..#....
-    """
+    # There is a starting period, then a succession of identical cycles
+    # index_found is the index of the first time we find a state we've already seen
+    # previous_index is the index of the first time we saw that state
+    # Iterate forever
+    {index_found, previous_index, visited} =
+      Stream.iterate(1, &(&1 + 1))
+      |> reduce_while(
+        # Keep track of the last rolls, the set of visited rolls, and the map of index to rolls
+        {rolls, MapSet.new(rolls), %{0 => rolls}},
+        fn i, {rolls, visited, mapped_visited} ->
+          # Move the rolls in all directions
+          new_rolls =
+            rolls
+            |> move_north(side, mapped_rocks)
+            |> move_west(side, mapped_rocks)
+            |> move_south(side, mapped_rocks)
+            |> move_east(side, mapped_rocks)
+            |> MapSet.new()
+
+          if new_rolls in visited do
+            # Find the index of the first time we saw this state
+            {index, _} = find(mapped_visited, fn {_p_i, p_rolls} -> p_rolls == new_rolls end)
+            {:halt, {i, index, mapped_visited}}
+          else
+            {:cont,
+             {new_rolls, MapSet.put(visited, new_rolls), Map.put(mapped_visited, i, new_rolls)}}
+          end
+        end
+      )
+
+    cycle_length = index_found - previous_index
+    # Taking into account the first period (from 0 to previous_index)
+    visited[rem(1_000_000_000 - previous_index, cycle_length) + previous_index]
+    # Compute load
+    |> map(fn {r, _c} -> side - r end)
+    |> sum()
   end
 end
