@@ -2,13 +2,8 @@ defmodule AdventOfCode.Day16 do
   import Enum
 
   @directions %{north: {-1, 0}, south: {1, 0}, east: {0, 1}, west: {0, -1}}
-  @print %{
-    empty: ".",
-    split_vertical: "|",
-    split_horizontal: "-",
-    mirror_right: "/",
-    mirror_left: "\\"
-  }
+
+  # PARSING
   def parse_char("."), do: :empty
   def parse_char("|"), do: :split_vertical
   def parse_char("-"), do: :split_horizontal
@@ -22,6 +17,7 @@ defmodule AdventOfCode.Day16 do
     |> map(fn {char, c} -> {{r, c}, parse_char(char)} end)
   end
 
+  # Create a typical map %{{row,col} => :a_cell}
   def parse(args) do
     args
     |> String.split("\n", trim: true)
@@ -29,23 +25,6 @@ defmodule AdventOfCode.Day16 do
     |> map(fn {line, r} -> parse_line(line, r) end)
     |> List.flatten()
     |> Map.new()
-    |> IO.inspect(label: "Parsed")
-    |> print_grid()
-  end
-
-  def print_grid(grid) do
-    max_r = grid |> map(fn {{r, _}, _} -> r end) |> max()
-    max_c = grid |> map(fn {{_, c}, _} -> c end) |> max()
-
-    for r <- 0..max_r do
-      for c <- 0..max_c do
-        @print[grid[{r, c}]]
-      end
-      |> join()
-      |> IO.puts()
-    end
-
-    grid
   end
 
   def move({r, c}, dir) do
@@ -53,8 +32,7 @@ defmodule AdventOfCode.Day16 do
     {r + dr, c + dc}
   end
 
-  # Exit
-  def enter(_pos, _dir, nil), do: []
+  # Rules when entering a cell from a direction. Returns a list of directed light beams (pos, dir)
   # Empty => continue
   def enter(pos, dir, :empty), do: [{pos, dir}]
   # Split Horizontal
@@ -78,43 +56,59 @@ defmodule AdventOfCode.Day16 do
   def enter(pos, :north, :mirror_left), do: [{pos, :west}]
   def enter(pos, :south, :mirror_left), do: [{pos, :east}]
 
-  def light(_, [], visited), do: visited |> map(fn {pos, _} -> pos end) |> MapSet.new()
+  # Move the light beams one step forward
+  # The idea is to keep track of the visited positions.
+  # But a visited position is NOT ONLY THE POSITION, but also the DIRECTION OF THE BEAM
+  # So it's a couple  {pos, dir}
+  # THe idea is that, when a beam is about to enter a cell, we check if the couple {pos, dir} is already in the visited set.
+  # If it is, we stop it, to avoid looping forever.
 
+  # No beams left to move, compute the activated cells number
+  def light(_, [], visited),
+    # The MapSet.new() here is to deduplicate the visited positions (if they are several directions)
+    do: visited |> map(fn {pos, _} -> pos end) |> MapSet.new() |> MapSet.size()
+
+  # Move the beams one step forward
   def light(grid, [{pos, dir} | rest], visited) do
     new_pos = move(pos, dir)
 
     cond do
+      # If the new position and direction is already visited, stop the beam
       {new_pos, dir} in visited ->
         light(grid, rest, visited)
 
+      # outside the grid, stop the beam
       grid[new_pos] == nil ->
         light(grid, rest, visited)
 
       true ->
+        # Compute the effects of entering the cell, given what's inside
         lights = enter(new_pos, dir, grid[new_pos])
+        # Add the new position and beams to the list of beams to move
+        # and add the new position and direction to the visited set
         light(grid, lights ++ rest, MapSet.put(visited, {new_pos, dir}))
     end
   end
 
-  def part1(args) do
-    args |> parse() |> light([{{0, -1}, :east}], MapSet.new()) |> MapSet.size()
-  end
+  # Launch a beam into the grid from a given position and direction
+  def beam(grid, pos, dir), do: light(grid, [{pos, dir}], MapSet.new())
 
-  def part2(_args) do
-  end
+  # Part 1
+  def part1(args), do: args |> parse() |> beam({0, -1}, :east)
 
-  def test(_) do
-    """
-    .|...\\....
-    |.-.\\.....
-    .....|-...
-    ........|.
-    ..........
-    .........\\
-    ..../.\\\\..
-    .-.-/..|..
-    .|....-|.\\
-    ..//.|....
-    """
+  # Part 2
+  def part2(args) do
+    grid = args |> parse()
+    max_r = grid |> map(fn {{r, _}, _} -> r end) |> max()
+    max_c = grid |> map(fn {{_, c}, _} -> c end) |> max()
+    # Launch from the 4 sides
+    [
+      for(r <- 0..max_r, do: beam(grid, {r, -1}, :east)),
+      for(r <- 0..max_r, do: beam(grid, {r, max_c + 1}, :west)),
+      for(c <- 0..max_c, do: beam(grid, {-1, c}, :south)),
+      for(c <- 0..max_c, do: beam(grid, {max_r + 1, c}, :north))
+    ]
+    |> List.flatten()
+    |> max()
   end
 end
