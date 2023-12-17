@@ -21,7 +21,7 @@ defmodule AdventOfCode.Day17 do
   def find_minimum_node(distances, to_visit) do
     distances
     |> filter(fn {pos, _} -> pos in to_visit end)
-    |> reduce(fn {pos, {dist, _lm}} = p, {_mp, {min_dist, _mlm}} = minp ->
+    |> reduce(fn {_pos, {dist, _lm}} = p, {_mp, {min_dist, _mlm}} = minp ->
       if dist < min_dist,
         do: p,
         else: minp
@@ -49,6 +49,10 @@ defmodule AdventOfCode.Day17 do
   def find_neighbours(pos, [:e | _], grid), do: [:e, :n, :s] |> to_pos(pos, grid)
   def find_neighbours(pos, [:w | _], grid), do: [:w, :n, :s] |> to_pos(pos, grid)
 
+  def add_move(a_move, []), do: [a_move]
+  def add_move(a_move, l) when length(l) < 3, do: [a_move | l]
+  def add_move(a_move, [a, b, _ | _]), do: [a_move, a, b]
+
   def dj(to_visit, distances, grid) do
     if MapSet.size(to_visit) == 0 do
       distances
@@ -68,12 +72,10 @@ defmodule AdventOfCode.Day17 do
             dist_b = acc[pos] |> elem(0)
 
             if dist_b > min_dist + weight,
-              do: Map.put(acc, pos, {min_dist + weight, [move_to | last_moves]}),
+              do: Map.put(acc, pos, {min_dist + weight, add_move(move_to, last_moves)}),
               else: acc
           end
         )
-
-      # IO.inspect({to_visit, new_distances}, label: "New state:")
 
       dj(to_visit, new_distances, grid)
     end
@@ -86,7 +88,7 @@ defmodule AdventOfCode.Day17 do
   end
 
   def part1(args) do
-    grid = args |> parse()
+    grid = args |> test() |> parse()
     max_r = grid |> map(fn {{r, _}, _} -> r end) |> max()
     max_c = grid |> map(fn {{_, c}, _} -> c end) |> max()
     dj(grid) |> Map.get({max_r, max_c})
