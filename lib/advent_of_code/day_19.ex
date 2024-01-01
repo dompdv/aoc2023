@@ -1,4 +1,5 @@
 defmodule AdventOfCode.Day19 do
+  ##### PARSING #####
   def parse2(p2) do
     for line <- String.split(p2, "\n", trim: true) do
       [x, m, a, s] =
@@ -49,6 +50,7 @@ defmodule AdventOfCode.Day19 do
     {parse1(p1), parse2(p2)}
   end
 
+  ###### PART1 : SIMPLE EXECUTION #####
   def execute([], _), do: :rejected
 
   def execute([{{a, comp, n}, out} | r], data) do
@@ -76,8 +78,49 @@ defmodule AdventOfCode.Day19 do
     |> Enum.sum()
   end
 
-  def part2(_args) do
-    :ok
+  #### PART2 ######
+  def gt(n, {l, h}) when h <= n, do: {nil, {l, h}}
+  def gt(n, {l, h}) when l > n, do: {{l, h}, nil}
+  def gt(n, {l, h}), do: {{l, n}, {n + 1, h}}
+
+  def lt(n, {l, h}) when l >= n, do: {nil, {l, h}}
+  def lt(n, {l, h}) when h < n, do: {{l, h}, nil}
+  def lt(n, {l, h}), do: {{l, n - 1}, {n, h}}
+
+  def execute2(rules, [{{a, comp, n}, out} | r], ranges) do
+    {n_true, n_false} = if comp == :gt, do: gt(n, ranges[a]), else: lt(n, ranges[a])
+
+    if n_true == nil do
+      execute2(rules, r, Map.put(ranges, a, n_false))
+    else
+      case out do
+        :accepted -> [Map.put(ranges, a, n_true)]
+        :rejected -> []
+        wf -> execute2(rules, rules[wf], Map.put(ranges, a, n_true))
+      end ++
+        execute2(rules, r, Map.put(ranges, a, n_false))
+    end
+  end
+
+  def execute2(rules, [out], ranges) do
+    case out do
+      :accepted -> [ranges]
+      :rejected -> []
+      wf -> execute2(rules, rules[wf], ranges)
+    end
+  end
+
+  def cube_volume(ranges) do
+    Enum.reduce(ranges, 1, fn {_, {l, h}}, acc -> acc * (h - l + 1) end)
+  end
+
+  def part2(args) do
+    {rules, _data} = args |> test() |> parse()
+
+    execute2(rules, rules["in"], %{x: {1, 4000}, m: {1, 4000}, a: {1, 4000}, s: {1, 4000}})
+    |> IO.inspect()
+    |> Enum.map(&cube_volume/1)
+    |> Enum.sum()
   end
 
   def test(_) do
