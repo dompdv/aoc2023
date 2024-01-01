@@ -81,7 +81,7 @@ defmodule AdventOfCode.Day19 do
   #### PART2 ######
   def gt(n, {l, h}) when h <= n, do: {nil, {l, h}}
   def gt(n, {l, h}) when l > n, do: {{l, h}, nil}
-  def gt(n, {l, h}), do: {{l, n}, {n + 1, h}}
+  def gt(n, {l, h}), do: {{n + 1, h}, {l, n}}
 
   def lt(n, {l, h}) when l >= n, do: {nil, {l, h}}
   def lt(n, {l, h}) when h < n, do: {{l, h}, nil}
@@ -115,33 +115,10 @@ defmodule AdventOfCode.Day19 do
   end
 
   def part2(args) do
-    {rules, _data} = args |> test() |> parse()
+    {rules, _data} = args |> parse()
 
     execute2(rules, rules["in"], %{x: {1, 4000}, m: {1, 4000}, a: {1, 4000}, s: {1, 4000}})
-    |> IO.inspect()
     |> Enum.map(&cube_volume/1)
     |> Enum.sum()
-  end
-
-  def test(_) do
-    """
-    px{a<2006:qkq,m>2090:A,rfg}
-    pv{a>1716:R,A}
-    lnx{m>1548:A,A}
-    rfg{s<537:gd,x>2440:R,A}
-    qs{s>3448:A,lnx}
-    qkq{x<1416:A,crn}
-    crn{x>2662:A,R}
-    in{s<1351:px,qqz}
-    qqz{s>2770:qs,m<1801:hdj,R}
-    gd{a>3333:R,R}
-    hdj{m>838:A,pv}
-
-    {x=787,m=2655,a=1222,s=2876}
-    {x=1679,m=44,a=2067,s=496}
-    {x=2036,m=264,a=79,s=2244}
-    {x=2461,m=1339,a=466,s=291}
-    {x=2127,m=1623,a=2188,s=1013}
-    """
   end
 end
