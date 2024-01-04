@@ -74,6 +74,9 @@ defmodule AdventOfCode.Day24 do
     end
   end
 
+  def f(x, points) do
+  end
+
   # Solving an equation f(X) = 0 with Newton's approach
   # where X is a vector and f a function
   def solve_newton(
@@ -134,15 +137,11 @@ defmodule AdventOfCode.Day24 do
       three
       |> Enum.map(fn {[x, y, z], [vx, vy, vz]} -> [x, y, z, vx, vy, vz, 1, 2, 3] end)
       |> Enum.reduce(&max_item/2)
-
-    #      |> Enum.map(&(&1 / 3))
-    # |> IO.inspect(label: "starting_point")
+      |> Enum.map(&(&1 / 3))
 
     [x, y, z, vx, vy, vz, _, _, _] = starting_point
-    homo = Enum.max([abs(x), abs(y), abs(z)]) / 100
+    homo = Enum.max([abs(x), abs(y), abs(z)]) / 100_000
     homot = Enum.max([abs(vx), abs(vy), abs(vz)]) / 10
-
-    #    IO.inspect({homo, homot}, label: "homo_t")
 
     updated_three =
       three
@@ -150,8 +149,6 @@ defmodule AdventOfCode.Day24 do
         {[(tx - x) / homo, (ty - y) / homo, (tz - z) / homo],
          [tvx / homot, tvy / homot, tvz / homot]}
       end)
-
-    #      |> IO.inspect()
 
     updated_starting_point = [0, 0, 0, vx / homot, vy / homot, vz / homot, 2, 3, 7]
 
@@ -161,7 +158,6 @@ defmodule AdventOfCode.Day24 do
 
     [xf * homo + x, yf * homo + y, zf * homo + z]
     |> Enum.map(&round/1)
-    |> IO.inspect()
     |> Enum.sum()
   end
 
