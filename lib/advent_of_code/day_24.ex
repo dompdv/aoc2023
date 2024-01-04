@@ -85,9 +85,6 @@ defmodule AdventOfCode.Day24 do
         [{_, [vx1, vy1, vz1]}, {_, [vx2, vy2, vz2]}, {_, [vx3, vy3, vz3]}] = points,
         eps
       ) do
-    v0 = f.(x0)
-    v0nx = Nx.tensor(v0, type: {:f, 64})
-
     # jacobian matrix
     sub =
       [
@@ -102,25 +99,23 @@ defmodule AdventOfCode.Day24 do
         [0, 0, 1, 0, 0, t3, 0, 0, vz - vz3]
       ]
       |> Nx.tensor(type: {:f, 64})
+      # mumtiply its inverse by f(x0)
       |> Nx.LinAlg.invert()
-      |> Nx.dot(v0nx)
+      |> Nx.dot(Nx.tensor(f.(x0), type: {:f, 64}))
 
     x1 = Nx.tensor(x0, type: {:f, 64}) |> Nx.subtract(sub) |> Nx.to_list()
 
-    norm =
-      f.(x1) |> Nx.tensor() |> Nx.LinAlg.norm() |> Nx.to_number()
+    norm = f.(x1) |> Nx.tensor() |> Nx.LinAlg.norm() |> Nx.to_number()
 
-    if norm < eps do
-      x1
-    else
-      solve_newton(x1, f, points, eps)
-    end
+    if norm < eps,
+      do: x1,
+      else: solve_newton(x1, f, points, eps)
   end
 
   def max_item(a, b), do: Enum.zip(a, b) |> Enum.map(fn {x, y} -> max(abs(x), abs(y)) end)
 
   def part2(args) do
-    hs = args |> parse()
+    hs = args |> test() |> parse()
 
     three =
       Stream.repeatedly(fn -> Enum.take(Enum.shuffle(hs), 3) end)
@@ -131,32 +126,16 @@ defmodule AdventOfCode.Day24 do
       |> Enum.take(1)
       |> List.flatten()
 
-    #      |> IO.inspect(label: "three")
-
     starting_point =
       three
       |> Enum.map(fn {[x, y, z], [vx, vy, vz]} -> [x, y, z, vx, vy, vz, 1, 2, 3] end)
       |> Enum.reduce(&max_item/2)
       |> Enum.map(&(&1 / 3))
 
-    [x, y, z, vx, vy, vz, _, _, _] = starting_point
-    homo = Enum.max([abs(x), abs(y), abs(z)]) / 100_000
-    homot = Enum.max([abs(vx), abs(vy), abs(vz)]) / 10
+    f = build_f(three)
 
-    updated_three =
-      three
-      |> Enum.map(fn {[tx, ty, tz], [tvx, tvy, tvz]} ->
-        {[(tx - x) / homo, (ty - y) / homo, (tz - z) / homo],
-         [tvx / homot, tvy / homot, tvz / homot]}
-      end)
-
-    updated_starting_point = [0, 0, 0, vx / homot, vy / homot, vz / homot, 2, 3, 7]
-
-    f = build_f(updated_three)
-
-    [xf, yf, zf | _] = solve_newton(updated_starting_point, f, three, 0.00001)
-
-    [xf * homo + x, yf * homo + y, zf * homo + z]
+    solve_newton(starting_point, f, three, 0.00001)
+    |> Enum.take(3)
     |> Enum.map(&round/1)
     |> Enum.sum()
   end
