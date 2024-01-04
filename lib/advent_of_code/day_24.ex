@@ -76,52 +76,91 @@ defmodule AdventOfCode.Day24 do
 
   # Solving an equation f(X) = 0 with Newton's approach
   # where X is a vector and f a function
-  def solve_newton(x0, f, eps) do
-    h = 0.00001
+  def solve_newton(
+        [_x, _y, _z, vx, vy, vz, t1, t2, t3] = x0,
+        f,
+        [{_, [vx1, vy1, vz1]}, {_, [vx2, vy2, vz2]}, {_, [vx3, vy3, vz3]}] = points,
+        eps
+      ) do
     v0 = f.(x0)
-    v0nx = Nx.tensor(v0, type: {:f, 32})
-    x0wi = Enum.with_index(x0)
+    v0nx = Nx.tensor(v0, type: {:f, 64})
 
-    jacob =
-      for {c, i} <- x0wi do
-        x1 = for {c2, j} <- x0wi, do: if(i == j, do: c + h, else: c2)
-        for {c1, c0} <- Enum.zip(f.(x1), v0), do: (c1 - c0) / h
-      end
-      |> Nx.tensor()
-
+    # jacobian matrix
     sub =
-      jacob
-      |> Nx.transpose()
+      [
+        [1, 0, 0, t1, 0, 0, vx - vx1, 0, 0],
+        [0, 1, 0, 0, t1, 0, vy - vy1, 0, 0],
+        [0, 0, 1, 0, 0, t1, vz - vz1, 0, 0],
+        [1, 0, 0, t2, 0, 0, 0, vx - vx2, 0],
+        [0, 1, 0, 0, t2, 0, 0, vy - vy2, 0],
+        [0, 0, 1, 0, 0, t2, 0, vz - vz2, 0],
+        [1, 0, 0, t3, 0, 0, 0, 0, vx - vx3],
+        [0, 1, 0, 0, t3, 0, 0, 0, vy - vy3],
+        [0, 0, 1, 0, 0, t3, 0, 0, vz - vz3]
+      ]
+      |> Nx.tensor(type: {:f, 64})
+      # invert the matrix and multiply by the vector
       |> Nx.LinAlg.invert()
       |> Nx.dot(v0nx)
       |> dbg()
 
-    x1 = Nx.subtract(v0nx, sub) |> IO.inspect()
+    x1 = Nx.tensor(x0, type: {:f, 64}) |> Nx.subtract(sub) |> Nx.to_list() |> IO.inspect()
 
-    if Nx.abs(x1) |> Nx.sum() < eps do
-      Nx.to_list(x1)
+    norm =
+      f.(x1) |> Nx.tensor() |> Nx.LinAlg.norm() |> Nx.to_number() |> IO.inspect(label: "norm")
+
+    if norm < eps do
+      x1
     else
-      solve_newton(Nx.to_list(x1), f, eps)
+      solve_newton(x1, f, points, eps)
     end
   end
 
+  def add(a, b), do: Enum.zip(a, b) |> Enum.map(fn {x, y} -> x + y end)
+
   def part2(args) do
-    hs = args |> test() |> parse()
+    hs = args |> parse()
 
     three =
       Stream.repeatedly(fn -> Enum.take(Enum.shuffle(hs), 3) end)
       |> Stream.filter(fn x ->
-        x |> Enum.map(&elem(&1, 1)) |> Nx.tensor() |> Nx.LinAlg.determinant() |> Nx.to_number() !=
+        x
+        |> Enum.map(&elem(&1, 1))
+        |> Nx.tensor()
+        |> Nx.LinAlg.determinant()
+        |> Nx.to_number()
+        |> IO.inspect(label: "determinant") !=
           0
       end)
       |> Enum.take(1)
       |> List.flatten()
 
-    f = build_f(three)
-    #    system_eq([1000, 1000, 1000], [1, 1, 1], [1, 2, 3], three)
-    solve_newton([25, 13, 12, -4, 1, 2, 1, 2, 3], f, 0.00001)
+    starting_point =
+      three
+      |> Enum.map(fn {[x, y, z], [vx, vy, vz]} -> [x, y, z, vx, vy, vz, 1, 2, 3] end)
+      |> Enum.reduce(&add/2)
+      |> Enum.map(&(&1 / 3))
 
-    #   three |> Enum.map(&elem(&1, 1)) |> Nx.tensor() |> Nx.LinAlg.determinant() |> Nx.to_number()
+    [x, y, z, vx, vy, vz, _, _, _] = starting_point
+    homo = Enum.max([abs(x), abs(y), abs(z)])
+    homot = Enum.max([abs(vx), abs(vy), abs(vz)])
+
+    updated_three =
+      three
+      |> Enum.map(fn {[tx, ty, tz], [tvx, tvy, tvz]} ->
+        {[(tx - x) / homo, (ty - y) / homo, (tz - z) / homo],
+         [tvx / homot, tvy / homot, tvz / homot]}
+      end)
+      |> IO.inspect()
+
+    updated_starting_point = [0, 0, 0, vx / homot, vy / homot, vz / homot, 1, 1, 1]
+
+    f = build_f(updated_three)
+
+    solve_newton(updated_starting_point, f, updated_three, 0.00001)
+    |> Enum.map(&round/1)
+    |> Enum.take(3)
+    |> Enum.sum()
   end
 
   def test(_) do
