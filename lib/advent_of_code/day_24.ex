@@ -99,15 +99,13 @@ defmodule AdventOfCode.Day24 do
         [0, 0, 1, 0, 0, t3, 0, 0, vz - vz3]
       ]
       |> Nx.tensor(type: {:f, 64})
-      # invert the matrix and multiply by the vector
       |> Nx.LinAlg.invert()
       |> Nx.dot(v0nx)
-      |> dbg()
 
-    x1 = Nx.tensor(x0, type: {:f, 64}) |> Nx.subtract(sub) |> Nx.to_list() |> IO.inspect()
+    x1 = Nx.tensor(x0, type: {:f, 64}) |> Nx.subtract(sub) |> Nx.to_list()
 
     norm =
-      f.(x1) |> Nx.tensor() |> Nx.LinAlg.norm() |> Nx.to_number() |> IO.inspect(label: "norm")
+      f.(x1) |> Nx.tensor() |> Nx.LinAlg.norm() |> Nx.to_number()
 
     if norm < eps do
       x1
@@ -116,7 +114,7 @@ defmodule AdventOfCode.Day24 do
     end
   end
 
-  def add(a, b), do: Enum.zip(a, b) |> Enum.map(fn {x, y} -> x + y end)
+  def max_item(a, b), do: Enum.zip(a, b) |> Enum.map(fn {x, y} -> max(abs(x), abs(y)) end)
 
   def part2(args) do
     hs = args |> parse()
@@ -124,26 +122,27 @@ defmodule AdventOfCode.Day24 do
     three =
       Stream.repeatedly(fn -> Enum.take(Enum.shuffle(hs), 3) end)
       |> Stream.filter(fn x ->
-        x
-        |> Enum.map(&elem(&1, 1))
-        |> Nx.tensor()
-        |> Nx.LinAlg.determinant()
-        |> Nx.to_number()
-        |> IO.inspect(label: "determinant") !=
+        x |> Enum.map(&elem(&1, 1)) |> Nx.tensor() |> Nx.LinAlg.determinant() |> Nx.to_number() !=
           0
       end)
       |> Enum.take(1)
       |> List.flatten()
 
+    #      |> IO.inspect(label: "three")
+
     starting_point =
       three
       |> Enum.map(fn {[x, y, z], [vx, vy, vz]} -> [x, y, z, vx, vy, vz, 1, 2, 3] end)
-      |> Enum.reduce(&add/2)
-      |> Enum.map(&(&1 / 3))
+      |> Enum.reduce(&max_item/2)
+
+    #      |> Enum.map(&(&1 / 3))
+    # |> IO.inspect(label: "starting_point")
 
     [x, y, z, vx, vy, vz, _, _, _] = starting_point
-    homo = Enum.max([abs(x), abs(y), abs(z)])
-    homot = Enum.max([abs(vx), abs(vy), abs(vz)])
+    homo = Enum.max([abs(x), abs(y), abs(z)]) / 100
+    homot = Enum.max([abs(vx), abs(vy), abs(vz)]) / 10
+
+    #    IO.inspect({homo, homot}, label: "homo_t")
 
     updated_three =
       three
@@ -151,15 +150,18 @@ defmodule AdventOfCode.Day24 do
         {[(tx - x) / homo, (ty - y) / homo, (tz - z) / homo],
          [tvx / homot, tvy / homot, tvz / homot]}
       end)
-      |> IO.inspect()
 
-    updated_starting_point = [0, 0, 0, vx / homot, vy / homot, vz / homot, 1, 1, 1]
+    #      |> IO.inspect()
+
+    updated_starting_point = [0, 0, 0, vx / homot, vy / homot, vz / homot, 2, 3, 7]
 
     f = build_f(updated_three)
 
-    solve_newton(updated_starting_point, f, updated_three, 0.00001)
+    [xf, yf, zf | _] = solve_newton(updated_starting_point, f, three, 0.00001)
+
+    [xf * homo + x, yf * homo + y, zf * homo + z]
     |> Enum.map(&round/1)
-    |> Enum.take(3)
+    |> IO.inspect()
     |> Enum.sum()
   end
 
