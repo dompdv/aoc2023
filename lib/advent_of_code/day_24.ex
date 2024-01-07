@@ -1,4 +1,7 @@
 defmodule AdventOfCode.Day24 do
+  defdelegate numerator <~> denominator, to: Ratio, as: :new
+  use Numbers, overload_operators: true
+
   def parse_line(line) do
     Regex.scan(~r/-?\d+/, line)
     |> List.flatten()
@@ -74,9 +77,6 @@ defmodule AdventOfCode.Day24 do
     end
   end
 
-  def f(x, points) do
-  end
-
   # Solving an equation f(X) = 0 with Newton's approach
   # where X is a vector and f a function
   def solve_newton(
@@ -85,8 +85,9 @@ defmodule AdventOfCode.Day24 do
         [{_, [vx1, vy1, vz1]}, {_, [vx2, vy2, vz2]}, {_, [vx3, vy3, vz3]}] = points,
         eps
       ) do
+    fx0 = f.(x0) |> IO.inspect(label: "f(x0)")
     # jacobian matrix
-    sub =
+    [sub] =
       [
         [1, 0, 0, t1, 0, 0, vx - vx1, 0, 0],
         [0, 1, 0, 0, t1, 0, vy - vy1, 0, 0],
@@ -98,21 +99,31 @@ defmodule AdventOfCode.Day24 do
         [0, 1, 0, 0, t3, 0, 0, 0, vy - vy3],
         [0, 0, 1, 0, 0, t3, 0, 0, vz - vz3]
       ]
-      |> Nx.tensor(type: {:f, 64})
+      |> Enum.map(&to_ratio/1)
       # mumtiply its inverse by f(x0)
-      |> Nx.LinAlg.invert()
-      |> Nx.dot(Nx.tensor(f.(x0), type: {:f, 64}))
+      |> Matrix.inv()
+      |> Matrix.mult(Matrix.transpose([fx0]))
+      |> Matrix.transpose()
+      |> dbg()
 
-    x1 = Nx.tensor(x0, type: {:f, 64}) |> Nx.subtract(sub) |> Nx.to_list()
+    IO.inspect(sub, label: "sub")
 
-    norm = f.(x1) |> Nx.tensor() |> Nx.LinAlg.norm() |> Nx.to_number()
+    x1 = for {l, r} <- Enum.zip(x0, sub), do: l - r
+    IO.inspect(x1, label: "x1")
 
-    if norm < eps,
+    norm =
+      Enum.reduce(sub, Ratio.new(0), fn x, acc -> acc + x * x end) |> IO.inspect(label: "norm")
+
+    # invert matrix {{1,0,0,t1,0,0,a,0,0},{0,1,0,0,t1,0,b,0,0},{0,0,1,0,0,t1,c,0,0},{1,0,0,t2,0,0,0,d,0},{0,1,0,0,t2,0,0,e,0},{0,0,1,0,0,t2,0,f,0},{1,0,0,t3,0,0,0,0,g},{0,1,0,0,t3,0,0,0,h},{0,0,1,0,0,t3,0,0,i}}
+
+    if Ratio.compare(norm, eps) == :lt,
       do: x1,
       else: solve_newton(x1, f, points, eps)
   end
 
   def max_item(a, b), do: Enum.zip(a, b) |> Enum.map(fn {x, y} -> max(abs(x), abs(y)) end)
+
+  def to_ratio(l), do: l |> Enum.map(&Ratio.new/1)
 
   def part2(args) do
     hs = args |> test() |> parse()
@@ -125,19 +136,25 @@ defmodule AdventOfCode.Day24 do
       end)
       |> Enum.take(1)
       |> List.flatten()
+      |> Enum.map(fn {l1, l2} -> {to_ratio(l1), to_ratio(l2)} end)
 
     starting_point =
       three
-      |> Enum.map(fn {[x, y, z], [vx, vy, vz]} -> [x, y, z, vx, vy, vz, 1, 2, 3] end)
+      |> Enum.map(fn {[x, y, z], [vx, vy, vz]} ->
+        [x, y, z, vx, vy, vz, Ratio.new(1), Ratio.new(2), Ratio.new(3)]
+      end)
       |> Enum.reduce(&max_item/2)
       |> Enum.map(&(&1 / 3))
 
     f = build_f(three)
 
-    solve_newton(starting_point, f, three, 0.00001)
+    solve_newton(starting_point, f, three, Ratio.new(1, 10000))
     |> Enum.take(3)
-    |> Enum.map(&round/1)
     |> Enum.sum()
+  end
+
+  # A matrix inversion with Gauss pivot in pure elixir
+  def gauss_pivot(a) do
   end
 
   def test(_) do
