@@ -50,94 +50,68 @@ defmodule AdventOfCode.Day24 do
 
   #### PART 2 ####
 
-  def system_eq(p, v, t, hs) do
-    # t = [t1,t2,t3], hs = [{[x1,y1,z1],[vx1,vy1,vz1]},{[x2,y2,z2],[vx2,vy2,vz2]}, {[x3,y3,z3],[vx3,vy3,vz3]}]
-    [x, y, z] = p
-    [vx, vy, vz] = v
+  # Find all divisors of a number
+  def divisors(n) do
+    n = abs(n)
+    nn = :math.sqrt(n) |> round()
 
-    for {ti, {[xi, yi, zi], [vxi, vyi, vzi]}} <- Enum.zip(t, hs) do
-      [
-        x + ti * vx - (xi + ti * vxi),
-        y + ti * vy - (yi + ti * vyi),
-        z + ti * vz - (zi + ti * vzi)
-      ]
+    divisors =
+      Enum.reduce(1..nn, [], fn i, acc ->
+        if rem(n, i) == 0 do
+          d = div(n, i)
+
+          if d != i,
+            do: [d, i | acc],
+            else: [i | acc]
+        else
+          acc
+        end
+      end)
+
+    divisors ++ Enum.map(divisors, &(&1 * -1))
+  end
+
+  def find_candidates({vx1, l}, dim) do
+    wi = Enum.with_index(l)
+
+    for {p1, i} <- wi, {p2, j} <- wi, i < j do
+      x1 = p1 |> elem(0) |> Enum.at(dim)
+      x2 = p2 |> elem(0) |> Enum.at(dim)
+      x2_x1 = x2 - x1
+      for(vx_vx1 <- divisors(x2_x1), do: vx_vx1 + vx1) |> MapSet.new()
     end
-    |> List.flatten()
-
-    #    |> Enum.reduce(0, fn x, acc -> acc + x * x end)
-    #    |> :math.sqrt()
+    |> Enum.reduce(fn a, acc -> MapSet.intersection(a, acc) end)
   end
 
-  def build_f(points) do
-    fn [x, y, z, vx, vy, vz, t1, t2, t3] ->
-      system_eq([x, y, z], [vx, vy, vz], [t1, t2, t3], points)
-    end
+  def find_v(velocities, dim) do
+    velocities[dim]
+    |> Enum.reduce_while(nil, fn vs, acc ->
+      c = find_candidates(vs, dim)
+
+      if acc == nil do
+        {:cont, c}
+      else
+        i = MapSet.intersection(acc, c)
+        if MapSet.size(i) == 1, do: {:halt, i}, else: {:cont, i}
+      end
+    end)
+    |> MapSet.to_list()
+    |> hd()
   end
-
-  def f(x, points) do
-  end
-
-  # Solving an equation f(X) = 0 with Newton's approach
-  # where X is a vector and f a function
-  def solve_newton(
-        [_x, _y, _z, vx, vy, vz, t1, t2, t3] = x0,
-        f,
-        [{_, [vx1, vy1, vz1]}, {_, [vx2, vy2, vz2]}, {_, [vx3, vy3, vz3]}] = points,
-        eps
-      ) do
-    # jacobian matrix
-    sub =
-      [
-        [1, 0, 0, t1, 0, 0, vx - vx1, 0, 0],
-        [0, 1, 0, 0, t1, 0, vy - vy1, 0, 0],
-        [0, 0, 1, 0, 0, t1, vz - vz1, 0, 0],
-        [1, 0, 0, t2, 0, 0, 0, vx - vx2, 0],
-        [0, 1, 0, 0, t2, 0, 0, vy - vy2, 0],
-        [0, 0, 1, 0, 0, t2, 0, vz - vz2, 0],
-        [1, 0, 0, t3, 0, 0, 0, 0, vx - vx3],
-        [0, 1, 0, 0, t3, 0, 0, 0, vy - vy3],
-        [0, 0, 1, 0, 0, t3, 0, 0, vz - vz3]
-      ]
-      |> Nx.tensor(type: {:f, 64})
-      # mumtiply its inverse by f(x0)
-      |> Nx.LinAlg.invert()
-      |> Nx.dot(Nx.tensor(f.(x0), type: {:f, 64}))
-
-    x1 = Nx.tensor(x0, type: {:f, 64}) |> Nx.subtract(sub) |> Nx.to_list()
-
-    norm = f.(x1) |> Nx.tensor() |> Nx.LinAlg.norm() |> Nx.to_number()
-
-    if norm < eps,
-      do: x1,
-      else: solve_newton(x1, f, points, eps)
-  end
-
-  def max_item(a, b), do: Enum.zip(a, b) |> Enum.map(fn {x, y} -> max(abs(x), abs(y)) end)
 
   def part2(args) do
-    hs = args |> test() |> parse()
+    hs = args |> parse()
 
-    three =
-      Stream.repeatedly(fn -> Enum.take(Enum.shuffle(hs), 3) end)
-      |> Stream.filter(fn x ->
-        x |> Enum.map(&elem(&1, 1)) |> Nx.tensor() |> Nx.LinAlg.determinant() |> Nx.to_number() !=
-          0
-      end)
-      |> Enum.take(1)
-      |> List.flatten()
+    same_velocities =
+      for i <- 0..2, into: %{} do
+        {i,
+         Enum.group_by(hs, fn {_, c} -> Enum.at(c, i) end)
+         |> Enum.reject(fn {_, v} -> Enum.count(v) == 1 end)}
+      end
 
-    starting_point =
-      three
-      |> Enum.map(fn {[x, y, z], [vx, vy, vz]} -> [x, y, z, vx, vy, vz, 1, 2, 3] end)
-      |> Enum.reduce(&max_item/2)
-      |> Enum.map(&(&1 / 3))
+    #      |> IO.inspect()
 
-    f = build_f(three)
-
-    solve_newton(starting_point, f, three, 0.00001)
-    |> Enum.take(3)
-    |> Enum.map(&round/1)
-    |> Enum.sum()
+    for dim <- 0..2, do: find_v(same_velocities, dim)
   end
 
   def test(_) do
