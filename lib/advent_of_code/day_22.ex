@@ -13,7 +13,6 @@ defmodule AdventOfCode.Day22 do
     do: args |> String.split("\n", trim: true) |> map(&parse_line/1)
 
   # Represents a brick with a tuple {z of the lowest point, height, list of [x, y] coordinates of the brick}
-  def to_structure([[x, y, z], [x, y, z]]), do: {z, 1, [[x, y]]}
   def to_structure([[l, y, z], [h, y, z]]), do: {z, 1, for(i <- l..h, do: [i, y])}
   def to_structure([[x, l, z], [x, h, z]]), do: {z, 1, for(i <- l..h, do: [x, i])}
   def to_structure([[x, y, l], [x, y, h]]), do: {l, h - l + 1, [[x, y]]}
@@ -40,9 +39,7 @@ defmodule AdventOfCode.Day22 do
       highest = max(for([x, y] <- xys, do: Map.get(elevations, {x, y}, 0)))
       # Compute the new elevations for the x,y of the cube
       new_elevations =
-        Enum.reduce(xys, elevations, fn [x, y], acc ->
-          Map.put(acc, {x, y}, highest + h)
-        end)
+        elevations |> Map.merge(for [x, y] <- xys, into: %{}, do: {{x, y}, highest + h})
 
       # If the cube is already at the highest elevation, add it to the list of processed cubes
       # else modify the elevation of the cube to the highest elevation + 1 and add it to the list of cubes to process
