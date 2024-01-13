@@ -28,7 +28,7 @@ defmodule AdventOfCode.Day22 do
 
   def fall(sorted_cubes) do
     {_, fell, has_moved} =
-      Enum.reduce(sorted_cubes, {%{}, [], false}, fn cube, {elevations, cubes, moved} ->
+      Enum.reduce(sorted_cubes, {%{}, [], 0}, fn cube, {elevations, cubes, moved} ->
         {l, h, t, xys} = cube
         highest = max(for([x, y] <- xys, do: height(elevations, x, y)))
 
@@ -39,7 +39,7 @@ defmodule AdventOfCode.Day22 do
 
         if l == highest + 1,
           do: {new_elevations, [cube | cubes], moved},
-          else: {new_elevations, [{highest + 1, h, t, xys} | cubes], true}
+          else: {new_elevations, [{highest + 1, h, t, xys} | cubes], moved + 1}
       end)
 
     {reverse(fell), has_moved}
@@ -52,12 +52,10 @@ defmodule AdventOfCode.Day22 do
         highest = max(for([x, y] <- xys, do: height(elevations, x, y)))
 
         if l == highest + 1 do
-          new_elevations =
-            Enum.reduce(xys, elevations, fn [x, y], acc ->
-              Map.put(acc, {x, y}, highest + h)
-            end)
-
-          {:cont, new_elevations}
+          {:cont,
+           Enum.reduce(xys, elevations, fn [x, y], acc ->
+             Map.put(acc, {x, y}, highest + h)
+           end)}
         else
           {:halt, :move}
         end
@@ -75,8 +73,13 @@ defmodule AdventOfCode.Day22 do
     for(i <- 0..(length(fell) - 1), can_desintegrate(i, fell), do: 1) |> sum()
   end
 
-  def part2(_args) do
-    :ok
+  def part2(args) do
+    fell = args |> parse() |> prepare() |> sort_cubes() |> fall() |> elem(0)
+
+    for i <- 0..(length(fell) - 1) do
+      fell |> List.delete_at(i) |> fall() |> elem(1)
+    end
+    |> sum()
   end
 
   def test(_) do
