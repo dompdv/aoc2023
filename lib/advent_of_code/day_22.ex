@@ -27,26 +27,52 @@ defmodule AdventOfCode.Day22 do
   def height(elevation, x, y), do: Map.get(elevation, {x, y}, 0)
 
   def fall(sorted_cubes) do
-    sorted_cubes
-    |> Enum.reduce({%{}, [], false}, fn cube, {elevations, cubes, moved} ->
-      {l, h, t, xys} = cube
-      highest = max(for([x, y] <- xys, do: height(elevations, x, y)))
+    {_, fell, has_moved} =
+      Enum.reduce(sorted_cubes, {%{}, [], false}, fn cube, {elevations, cubes, moved} ->
+        {l, h, t, xys} = cube
+        highest = max(for([x, y] <- xys, do: height(elevations, x, y)))
 
-      new_elevations =
-        Enum.reduce(xys, elevations, fn [x, y], acc ->
-          Map.put(acc, {x, y}, highest + h)
-        end)
+        new_elevations =
+          Enum.reduce(xys, elevations, fn [x, y], acc ->
+            Map.put(acc, {x, y}, highest + h)
+          end)
 
-      if l == highest + 1,
-        do: {new_elevations, [cube | cubes], moved},
-        else: {new_elevations, [{highest + 1, h, t, xys} | cubes], true}
-    end)
-    |> elem(1)
-    |> reverse()
+        if l == highest + 1,
+          do: {new_elevations, [cube | cubes], moved},
+          else: {new_elevations, [{highest + 1, h, t, xys} | cubes], true}
+      end)
+
+    {reverse(fell), has_moved}
   end
 
+  def something_will_move(sorted_cubes) do
+    will_move =
+      Enum.reduce_while(sorted_cubes, %{}, fn cube, elevations ->
+        {l, h, _t, xys} = cube
+        highest = max(for([x, y] <- xys, do: height(elevations, x, y)))
+
+        if l == highest + 1 do
+          new_elevations =
+            Enum.reduce(xys, elevations, fn [x, y], acc ->
+              Map.put(acc, {x, y}, highest + h)
+            end)
+
+          {:cont, new_elevations}
+        else
+          {:halt, :move}
+        end
+      end)
+
+    will_move == :move
+  end
+
+  def can_desintegrate(i, fell),
+    do: fell |> List.delete_at(i) |> something_will_move() |> then(&(not &1))
+
   def part1(args) do
-    cubes = args |> test() |> parse() |> prepare() |> sort_cubes() |> fall()
+    fell = args |> parse() |> prepare() |> sort_cubes() |> fall() |> elem(0)
+
+    for(i <- 0..(length(fell) - 1), can_desintegrate(i, fell), do: 1) |> sum()
   end
 
   def part2(_args) do
