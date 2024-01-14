@@ -52,29 +52,20 @@ defmodule AdventOfCode.Day22 do
     |> then(fn {_, l, n} -> {reverse(l), n} end)
   end
 
-  # Part 1
-  def part1(args) do
-    # Parse the input, convert it to a list of structures, sort it by increasing lowest point and fall the cubes to their starting positions
-    fell = args |> parse() |> prepare() |> sort_cubes() |> fall() |> elem(0)
+  # Main function
+  def run_simulations(cubes) do
+    # Convert iinput to a list of structures, sort it by increasing lowest point and fall the cubes to their starting positions
+    fell = cubes |> prepare() |> sort_cubes() |> fall() |> elem(0)
 
     # For each cube, remove it from the list of cubes and fall the remaining cubes and count the number of cubes that have fallen in each case
     for i <- 0..(length(fell) - 1) do
       fell |> List.delete_at(i) |> fall() |> elem(1)
     end
-    # Count the cubes for which the number of cubes that have fallen is 0
-    |> filter(&(&1 == 0))
-    |> count()
   end
+
+  # Part 1
+  def part1(args), do: args |> parse() |> run_simulations() |> filter(&(&1 == 0)) |> count()
 
   # Part 2
-  def part2(args) do
-    # See part 1
-    fell = args |> parse() |> prepare() |> sort_cubes() |> fall() |> elem(0)
-
-    for i <- 0..(length(fell) - 1) do
-      fell |> List.delete_at(i) |> fall() |> elem(1)
-    end
-    # Sum the number of cubes that have fallen in each case
-    |> sum()
-  end
+  def part2(args), do: args |> parse() |> run_simulations() |> sum()
 end
