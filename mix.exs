@@ -23,7 +23,8 @@ defmodule AdventOfCode.MixProject do
     [
       {:nx, "~> 0.6.4"},
       {:benchee, "~> 1.0"},
-      {:httpoison, "~> 1.8"}
+      {:httpoison, "~> 1.8"},
+      {:ets_deque, "~> 0.2"}
     ]
   end
 end

@@ -66,9 +66,15 @@ defmodule AdventOfCode.Day20 do
   # Returns a tuple {new_state, new_counter}
 
   # No more pulse to process
-  def hop([], state, counter, _graph), do: {state, counter}
+  def hop(pulses, state, counter, graph) do
+    if EtsDeque.length(pulses) == 0,
+      do: {state, counter},
+      else: do_hop(pulses, state, counter, graph)
+  end
 
-  def hop([{from_node, to_node, signal} | pulses], state, counter, graph) do
+  def do_hop(pulses, state, counter, graph) do
+    # Get the next pulse
+    {{from_node, to_node, signal}, pulses} = EtsDeque.pop_head!(pulses)
     #    if to_node in [:hf, :jm, :rh, :jg] and signal == :high,
     #      do: IO.inspect({i, to_node, signal}, label: "hop")
 
@@ -118,10 +124,14 @@ defmodule AdventOfCode.Day20 do
       end
 
     # Add new_pulses to the list of pulses and continue
-    hop(pulses ++ new_pulses, updated_state, updated_counter, graph)
+    d_pulses = reduce(new_pulses, pulses, fn e, p -> EtsDeque.push_tail!(p, e) end)
+    hop(d_pulses, updated_state, updated_counter, graph)
   end
 
-  def initial_pulse(), do: [{:elve, :button, :low}]
+  def initial_pulse() do
+    deq = EtsDeque.new()
+    EtsDeque.push_head!(deq, {:elve, :button, :low})
+  end
 
   def part1(args) do
     graph = args |> parse()
