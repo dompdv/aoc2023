@@ -30,18 +30,11 @@ defmodule AdventOfCode.Day20 do
   # Find predecessors
   def find_predecessors(graph) do
     # Loop through the graph, and for each node
-    reduce(
-      graph,
-      # map %{node => [predecessors]}
-      %{},
-      fn {k, {_, l}}, acc ->
-        # Loop through the list of successors and update the predecessors map
-        reduce(l, acc, fn e, p ->
-          current = Map.get(p, e, [])
-          Map.put(p, e, [k | current])
-        end)
-      end
-    )
+    # (p_map is the map %{node => [predecessor]})
+    reduce(graph, %{}, fn {k, {_, l}}, p_map ->
+      # Loop through the list of successors and update the predecessors map
+      reduce(l, p_map, fn e, p -> Map.put(p, e, [k | Map.get(p, e, [])]) end)
+    end)
   end
 
   # Reset the state of all nodes
@@ -49,13 +42,7 @@ defmodule AdventOfCode.Day20 do
     predecessors = find_predecessors(graph)
 
     for {k, {t, _l}} <- graph do
-      {k,
-       case t do
-         :button -> nil
-         :broadcaster -> nil
-         :flipflop -> :off
-         :conj -> for p <- predecessors[k], into: %{}, do: {p, :low}
-       end}
+      {k, if(t == :conj, do: for(p <- predecessors[k], into: %{}, do: {p, :low}), else: :off)}
     end
     |> Map.new()
   end
@@ -142,9 +129,7 @@ defmodule AdventOfCode.Day20 do
     reduce(
       1..1000,
       {inital_state(graph), %{low: 0, high: 0}},
-      fn _i, {state, counter} ->
-        hop(initial_pulse(), state, counter, graph)
-      end
+      fn _i, {state, counter} -> hop(initial_pulse(), state, counter, graph) end
     )
     |> then(fn {_state, counter} -> counter[:low] * counter[:high] end)
   end
@@ -153,7 +138,6 @@ defmodule AdventOfCode.Day20 do
     if rem(i, 1_000_000) == 0, do: IO.inspect(i)
     {new_state, new_counter} = hop(initial_pulse(), state, counter, graph)
     #      if to_node in [:rh] and signal == :high,
-    IO.inspect(new_state[:mg])
     # IO.inspect(new_state[:mg])
     if any?(new_state[:mg], fn {_, v} -> v == :high end), do: IO.inspect(i, new_state[:mg])
 
