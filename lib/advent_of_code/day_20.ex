@@ -66,17 +66,16 @@ defmodule AdventOfCode.Day20 do
   # Returns a tuple {new_state, new_counter}
 
   # No more pulse to process
-  def hop(pulses, state, counter, graph) do
-    if EtsDeque.length(pulses) == 0,
-      do: {state, counter},
-      else: do_hop(pulses, state, counter, graph)
-  end
+  def hop(_, [], state, counter, _graph, _), do: {state, counter}
 
-  def do_hop(pulses, state, counter, graph) do
-    # Get the next pulse
-    {{from_node, to_node, signal}, pulses} = EtsDeque.pop_head!(pulses)
-    #    if to_node in [:hf, :jm, :rh, :jg] and signal == :high,
-    #      do: IO.inspect({i, to_node, signal}, label: "hop")
+  def hop(i, [{from_node, to_node, signal} | pulses], state, counter, graph, prx) do
+    counter =
+      if to_node == prx and signal == :high do
+        cycles = Map.get(counter, :cycles, %{})
+        Map.put(counter, :cycles, Map.put(cycles, from_node, i))
+      else
+        counter
+      end
 
     counter = if to_node == :rx and signal == :low, do: Map.put(counter, :rx, true), else: counter
     node_state = state[to_node]
@@ -124,14 +123,10 @@ defmodule AdventOfCode.Day20 do
       end
 
     # Add new_pulses to the list of pulses and continue
-    d_pulses = reduce(new_pulses, pulses, fn e, p -> EtsDeque.push_tail!(p, e) end)
-    hop(d_pulses, updated_state, updated_counter, graph)
+    hop(i, pulses ++ new_pulses, updated_state, updated_counter, graph, prx)
   end
 
-  def initial_pulse() do
-    deq = EtsDeque.new()
-    EtsDeque.push_head!(deq, {:elve, :button, :low})
-  end
+  def initial_pulse(), do: [{:elve, :button, :low}]
 
   def part1(args) do
     graph = args |> parse()
@@ -139,51 +134,32 @@ defmodule AdventOfCode.Day20 do
     reduce(
       1..1000,
       {inital_state(graph), %{low: 0, high: 0}},
-      fn _i, {state, counter} -> hop(initial_pulse(), state, counter, graph) end
+      fn i, {state, counter} -> hop(i, initial_pulse(), state, counter, graph, nil) end
     )
     |> then(fn {_state, counter} -> counter[:low] * counter[:high] end)
   end
 
-  def loop_until_machine_starts(i, state, counter, graph) do
+  def loop_until_machine_starts(i, state, counter, graph, prx) do
     if rem(i, 1_000_000) == 0, do: IO.inspect(i)
-    {new_state, new_counter} = hop(initial_pulse(), state, counter, graph)
-    #      if to_node in [:rh] and signal == :high,
-    # IO.inspect(new_state[:mg])
-    if any?(new_state[:mg], fn {_, v} -> v == :high end), do: IO.inspect(i, new_state[:mg])
+    {new_state, new_counter} = hop(i, initial_pulse(), state, counter, graph, prx)
+    cycles = Map.get(new_counter, :cycles, %{})
 
-    if new_counter[:rx],
-      do: i,
-      else: loop_until_machine_starts(i + 1, new_state, new_counter, graph)
+    if map_size(cycles) == 4,
+      do: Map.values(new_counter[:cycles]),
+      else: loop_until_machine_starts(i + 1, new_state, new_counter, graph, prx)
   end
+
+  def gcd([a, b, c, d]), do: Integer.gcd(a, Integer.gcd(b, Integer.gcd(c, d)))
 
   def part2(args) do
     # broadcaster -> gb, ht, vk, zz
     graph = args |> parse()
     predecessors = find_predecessors(graph)
     [prx] = predecessors[:rx]
-    # graph = Map.put(graph, :broadcaster, {:broadcaster, [:gb]})
-    loop_until_machine_starts(1, inital_state(graph), %{low: 0, high: 0, rx: false}, graph)
-    #    predecessors[:rx]
-    # predecessors[:mg]
-  end
 
-  def test(_) do
-    """
-    broadcaster -> a, b, c
-    %a -> b
-    %b -> c
-    %c -> inv
-    &inv -> a
-    """
-  end
+    cycles =
+      loop_until_machine_starts(1, inital_state(graph), %{low: 0, high: 0, rx: false}, graph, prx)
 
-  def test2(_) do
-    """
-    broadcaster -> a
-    %a -> inv, con
-    &inv -> b
-    %b -> con
-    &con -> output
-    """
+    round(product(cycles) / gcd(cycles))
   end
 end
