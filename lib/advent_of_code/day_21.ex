@@ -24,52 +24,56 @@ defmodule AdventOfCode.Day21 do
     {Map.put(garden, start, :plot), start}
   end
 
-  def reachable(garden, {r, c}) do
-    reduce([{-1, 0}, {1, 0}, {0, -1}, {0, 1}], [], fn {dr, dc}, acc ->
+  def reachable(garden, {r, c}, start_acc) do
+    reduce([{-1, 0}, {1, 0}, {0, -1}, {0, 1}], start_acc, fn {dr, dc}, acc ->
       case garden[{r + dr, c + dc}] do
         nil -> acc
         :rock -> acc
-        :plot -> [{r + dr, c + dc} | acc]
+        :plot -> MapSet.put(acc, {r + dr, c + dc})
       end
     end)
   end
 
   def one_step(positions, garden) do
-    positions
-    |> reduce([], fn pos, acc -> prepend(reachable(garden, pos), acc) end)
-    |> uniq()
+    reduce(positions, MapSet.new(), fn pos, acc -> reachable(garden, pos, acc) end)
   end
 
   def part1(args) do
     {garden, start} = args |> parse()
-    reduce(1..64, [start], fn _, positions -> one_step(positions, garden) end) |> count()
+    IO.inspect(count(garden))
+    IO.inspect(count(garden, fn {_, v} -> v == :plot end))
+
+    reduce(1..64, MapSet.new([start]), fn _, positions -> one_step(positions, garden) end)
+    |> count()
+
+    # 202300
   end
 
-  def ireachable(garden, side, {r, c}) do
-    reduce([{-1, 0}, {1, 0}, {0, -1}, {0, 1}], [], fn {dr, dc}, acc ->
-      dest = {rem(r + dr, side), rem(c + dc, side)}
+  def remp(a, b) do
+    r = rem(a, b)
+    if r < 0, do: b + r, else: r
+  end
 
-      case garden[dest] do
-        nil -> acc
-        :rock -> acc
-        :plot -> [{r + dr, c + dc} | acc]
-      end
+  def ireachable(garden, side, {r, c}, start_acc) do
+    reduce([{-1, 0}, {1, 0}, {0, -1}, {0, 1}], start_acc, fn {dr, dc}, acc ->
+      dest = {remp(r + dr, side), remp(c + dc, side)}
+      if MapSet.member?(garden, dest), do: acc, else: MapSet.put(acc, {r + dr, c + dc})
     end)
   end
 
-  def prepend([], b), do: b
-  def prepend([a | r], b), do: prepend(r, [a | b])
-
   def ione_step(positions, garden, side) do
-    positions
-    |> reduce([], fn pos, acc -> prepend(ireachable(garden, side, pos), acc) end)
-    |> uniq()
+    reduce(positions, MapSet.new(), fn pos, acc -> ireachable(garden, side, pos, acc) end)
   end
 
   def part2(args) do
     {garden, start} = args |> test() |> parse()
-    side = (garden |> Map.keys() |> map(fn {r, _} -> r end) |> max()) + 1
-    reduce(1..10, [start], fn _, positions -> ione_step(positions, garden, side) end) |> count()
+    side = max(map(garden, fn {{r, _}, _} -> r end)) + 1
+    garden = garden |> filter(fn {_, v} -> v == :rock end) |> map(&elem(&1, 0)) |> MapSet.new()
+
+    IO.inspect({side, side * side, count(garden), side * side - count(garden)})
+
+    reduce(1..100, MapSet.new([start]), fn _, positions -> ione_step(positions, garden, side) end)
+    |> count()
   end
 
   def test(_) do
