@@ -66,6 +66,7 @@ defmodule AdventOfCode.Day21 do
   end
 
   def part2(args) do
+    #### I GAVE UP AND USED A SIMPLE QUADRATIC INTERPOLATION AS SEEN ON REDDIT. DONT LOOK AT THIS ####
     {full_garden, start} = args |> parse()
     {start_r, start_c} = start
     side = max(map(full_garden, fn {{r, _}, _} -> r end)) + 1
