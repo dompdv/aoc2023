@@ -66,14 +66,60 @@ defmodule AdventOfCode.Day21 do
   end
 
   def part2(args) do
-    {garden, start} = args |> test() |> parse()
-    side = max(map(garden, fn {{r, _}, _} -> r end)) + 1
-    garden = garden |> filter(fn {_, v} -> v == :rock end) |> map(&elem(&1, 0)) |> MapSet.new()
+    {full_garden, start} = args |> parse()
+    {start_r, start_c} = start
+    side = max(map(full_garden, fn {{r, _}, _} -> r end)) + 1
 
-    IO.inspect({side, side * side, count(garden), side * side - count(garden)})
+    garden =
+      full_garden |> filter(fn {_, v} -> v == :rock end) |> map(&elem(&1, 0)) |> MapSet.new()
 
-    reduce(1..100, MapSet.new([start]), fn _, positions -> ione_step(positions, garden, side) end)
+    1..10
+    |> reduce(MapSet.new([start]), fn _, positions -> ione_step(positions, garden, side) end)
     |> count()
+
+    n_rocks = count(garden)
+    # Shifted plot
+    shift_garden =
+      MapSet.new(map(full_garden, fn {{r, c}, v} -> {{r - start_r, c - start_c}, v} end))
+      |> reject(fn {_, v} -> v == :rock end)
+      |> map(&elem(&1, 0))
+
+    square = side * side
+    semi_side = div(side - 1, 2)
+    n_plot = square - n_rocks
+
+    pieces =
+      for {r, c} <- shift_garden do
+        cond do
+          abs(r) + abs(c) <= semi_side -> :heart
+          r < 0 and c > 0 -> :top_right
+          r < 0 and c < 0 -> :top_left
+          r > 0 and c < 0 -> :bottom_left
+          r > 0 and c > 0 -> :bottom_right
+        end
+      end
+      |> Enum.frequencies()
+      |> Map.put(:all, n_plot)
+      |> then(fn map ->
+        Map.put(
+          map,
+          :corners,
+          map[:top_left] + map[:top_right] + map[:bottom_left] + map[:bottom_right]
+        )
+      end)
+
+    IO.inspect({side, semi_side, square, n_plot, pieces})
+    steps = 26_501_365
+    bss = div(steps - semi_side, side)
+    bssm = bss - 1
+    # Coeur + horizontaux + verticaux
+    full = (4 * div(bssm * (bssm - 1), 2) + 4 * bssm + 1) * pieces[:all]
+    # Arêtes
+    triangle = bss * pieces[:corners]
+    cut = bssm * (3 * pieces[:all] + pieces[:heart])
+    # Pics
+    arrows = 4 * pieces[:heart] + 2 * pieces[:corners]
+    full + cut + triangle + arrows
   end
 
   def test(_) do
